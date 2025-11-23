@@ -69,7 +69,8 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ error: null });
       console.log("Attempting to joinOrCreate 'uno'...");
       const room = (await get().client.joinOrCreate("uno", { name: get().nickname })) as Colyseus.Room<UNOState>;
-      console.log("Room created successfully", room.id);
+      // Fix: Use room.roomId instead of room.id as per Colyseus types
+      console.log("Room created successfully", room.roomId);
       get()._setupRoom(room);
     } catch (e: any) {
       console.error("Create Room Error:", e);
