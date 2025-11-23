@@ -1,5 +1,6 @@
 import { Schema, MapSchema, ArraySchema, type } from "@colyseus/schema";
-import { CardColor, CardType, GameStatus } from "../../shared/types";
+import { GameStatus } from "../../shared/types";
+import type { CardColor, CardType } from "../../shared/types";
 
 export class Card extends Schema {
   @type("string") id: string = "";

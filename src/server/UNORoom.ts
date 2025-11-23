@@ -4,28 +4,28 @@ import { CardColor, CardType, GameStatus } from "../shared/types";
 import { v4 as uuidv4 } from 'uuid';
 
 export class UNORoom extends Room<UNOState> {
-  state!: UNOState;
+  declare state: UNOState;
   maxClients = 6;
   playerIndexes: string[] = []; // maintain turn order
 
   onCreate(options: any) {
-    (this as any).setState(new UNOState());
+    this.setState(new UNOState());
     this.state.roomCode = this.generateRoomCode();
     
-    (this as any).onMessage("setInfo", (client: Client, data: any) => {
+    this.onMessage("setInfo", (client: Client, data: any) => {
       const player = this.state.players.get(client.sessionId);
       if (player) {
         player.name = data.name || "Guest";
       }
     });
 
-    (this as any).onMessage("toggleReady", (client: Client) => {
+    this.onMessage("toggleReady", (client: Client) => {
       if (this.state.status !== GameStatus.LOBBY) return;
       const player = this.state.players.get(client.sessionId);
       if (player) player.isReady = !player.isReady;
     });
 
-    (this as any).onMessage("startGame", (client: Client) => {
+    this.onMessage("startGame", (client: Client) => {
       if (this.state.status !== GameStatus.LOBBY) return;
       // Host check omitted for simplicity, allowing any player to start if conditions met
       const readyCount = Array.from(this.state.players.values()).filter((p: Player) => p.isReady).length;
@@ -34,19 +34,19 @@ export class UNORoom extends Room<UNOState> {
       }
     });
 
-    (this as any).onMessage("playCard", (client: Client, data: { cardId: string, chooseColor?: CardColor }) => {
+    this.onMessage("playCard", (client: Client, data: { cardId: string, chooseColor?: CardColor }) => {
       this.handlePlayCard(client, data.cardId, data.chooseColor);
     });
 
-    (this as any).onMessage("drawCard", (client: Client) => {
+    this.onMessage("drawCard", (client: Client) => {
       this.handleDrawCard(client);
     });
 
-    (this as any).onMessage("sayUno", (client: Client) => {
+    this.onMessage("sayUno", (client: Client) => {
       const player = this.state.players.get(client.sessionId);
       if (player && player.hand.length <= 2) {
          player.hasSaidUno = true;
-         (this as any).broadcast("notification", `${player.name} said UNO!`);
+         this.broadcast("notification", `${player.name} said UNO!`);
       }
     });
   }
@@ -71,15 +71,15 @@ export class UNORoom extends Room<UNOState> {
         // Game in progress - wait for reconnect
         try {
           if (consented) throw new Error("Consented leave");
-          await (this as any).allowReconnection(client, 30);
+          await this.allowReconnection(client, 30);
           player.isConnected = true;
         } catch (e) {
           this.state.players.delete(client.sessionId);
           this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
-          (this as any).broadcast("notification", `${player.name} left the game.`);
+          this.broadcast("notification", `${player.name} left the game.`);
           if (this.state.players.size < 2) {
              this.state.status = GameStatus.LOBBY; // Reset if too few players
-             (this as any).broadcast("notification", "Game reset due to lack of players.");
+             this.broadcast("notification", "Game reset due to lack of players.");
           }
         }
       }
