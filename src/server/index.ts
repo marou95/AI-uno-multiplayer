@@ -8,57 +8,28 @@ import cors from "cors";
 const port = Number(process.env.PORT || 2567);
 const app = express();
 
-// === CORS CONFIGURATION AMÉLIORÉE ===
+// === CORS CONFIGURATION CRITIQUE ===
+// DOIT être configuré AVANT toute autre middleware
 const corsOptions = {
     origin: function (origin: string | undefined, callback: Function) {
-        // Autoriser les requêtes sans origin (comme Postman, mobile apps, etc.)
-        if (!origin) return callback(null, true);
-        
-        // Liste des origines autorisées
-        const allowedOrigins = [
-            'http://localhost:5173',
-            'http://localhost:3000',
-            'https://ai-uno-multiplayer-production.up.railway.app',
-            // Ajoutez votre domaine Vercel ici
-            /\.vercel\.app$/,  // Autorise tous les sous-domaines vercel.app
-        ];
-        
-        // Vérifier si l'origine est autorisée
-        const isAllowed = allowedOrigins.some(allowed => {
-            if (typeof allowed === 'string') {
-                return origin === allowed;
-            }
-            return allowed.test(origin);
-        });
-        
-        if (isAllowed) {
-            callback(null, true);
-        } else {
-            console.log('Origin bloquée:', origin);
-            callback(null, true); // En dev, on autorise quand même
-        }
+        // En production, toujours autoriser (Railway a besoin de ça)
+        callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     exposedHeaders: ['Content-Length', 'Content-Type'],
-    maxAge: 86400 // 24 heures
+    maxAge: 86400,
+    optionsSuccessStatus: 204
 };
 
+// IMPORTANT: CORS doit être le PREMIER middleware
 app.use(cors(corsOptions));
 
-// Gérer explicitement les requêtes OPTIONS (preflight)
+// Gérer EXPLICITEMENT les preflight pour TOUTES les routes
 app.options('*', cors(corsOptions));
 
 app.use(express.json());
-
-// === MIDDLEWARE POUR LES ROUTES COLYSEUS ===
-// NE PAS interférer avec les routes de Colyseus
-// On laisse passer sans rien faire
-app.use('/matchmake', (req, res, next) => {
-    // La route est gérée par Colyseus, on ne fait rien
-    // IMPORTANT: Ne pas appeler res.send() ou res.end()
-});
 
 // Route de santé
 app.get("/", (req, res) => {
@@ -70,7 +41,6 @@ app.get("/", (req, res) => {
     });
 });
 
-// Route de test pour vérifier CORS
 app.get("/health", (req, res) => {
     res.json({ 
         status: "healthy",
@@ -88,22 +58,21 @@ const gameServer = new Server({
         pingInterval: 3000,
         pingMaxRetries: 3,
     }),
-    // Ajout de la configuration de présence pour Railway
-    presence: undefined, // Utiliser la présence locale
 });
 
 // Définir la room UNO
 gameServer.define("uno", UNORoom)
     .enableRealtimeListing()
-    .filterBy(['code']); // Permet de filtrer les rooms par code
+    .filterBy(['code']);
 
-// Démarrer le serveur
+// CRITIQUE: Démarrer Colyseus AVANT d'écouter
 gameServer.listen(port);
 
 console.log(`✅ UNO server is running!`);
 console.log(`📡 WebSocket: ws://0.0.0.0:${port}`);
 console.log(`🌐 HTTP: http://0.0.0.0:${port}`);
 console.log(`🎮 Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🔓 CORS: Enabled for all origins`);
 
 // Gestion des erreurs
 process.on('unhandledRejection', (reason, promise) => {
