@@ -2,22 +2,23 @@ import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
 
-// URL du backend Railway (sans slash à la fin pour éviter les doubles slashes)
+// URL du backend Railway
+// Note: Ensure NO trailing slash
 const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 
 const getBackendUrl = () => {
-  // 1. Si une variable d'env est définie (priorité absolue)
+  // 1. Env variable (Highest priority)
   if (import.meta.env.VITE_SERVER_URL) {
     return import.meta.env.VITE_SERVER_URL;
   }
   
-  // 2. En Production (Vercel, etc.) -> Utiliser Railway
+  // 2. Production (Vercel) -> Railway
   if (import.meta.env.PROD) {
     return RAILWAY_BACKEND;
   }
   
-  // 3. En Local -> Utiliser le proxy Vite (ws://localhost:5173/uno -> ws://localhost:2567)
-  // On utilise window.location.host pour garder le port du frontend (5173)
+  // 3. Local Development -> Vite Proxy
+  // Uses current window host to keep port 5173, proxied to 2567
   const protocol = window.location.protocol.replace('http', 'ws');
   return `${protocol}//${window.location.host}`;
 };
