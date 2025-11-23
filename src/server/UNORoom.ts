@@ -316,6 +316,11 @@ export class UNORoom extends Room<UNOState> {
   }
 
   generateRoomCode() {
-    return Math.random().toString(36).substring(2, 7).toUpperCase();
-  }
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+      code += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    return code;
+}
 }
