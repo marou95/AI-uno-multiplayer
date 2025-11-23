@@ -93,10 +93,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
   createRoom: async () => {
     const store = get();
-    
-    // Prévenir les appels multiples
-    if (store.isConnecting || store.room) {
-      console.log('Already connecting or room exists, ignoring duplicate request');
+    if (store.isConnecting) {
+      console.log('Already connecting, ignoring duplicate request');
       return;
     }
 
@@ -152,10 +150,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
   joinRoom: async (code) => {
     const store = get();
-    
-    // Prévenir les appels multiples
-    if (store.isConnecting || store.room) {
-      console.log('Already connecting or room exists, ignoring duplicate request');
+    if (store.isConnecting) {
+      console.log('Already connecting, ignoring duplicate request');
       return;
     }
 
@@ -228,20 +224,10 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
-    console.log('🔧 Setting up room:', room.roomId);
     set({ room, playerId: room.sessionId, error: null });
 
-    // Premier changement d'état (critique pour afficher le lobby)
-    room.onStateChange.once((state) => {
-      console.log('📊 Initial state:', state.status, state.roomCode);
-      // Forcer la mise à jour immédiate
-      set({ gameState: state as any });
-    });
-
-    // Changements d'état suivants
     room.onStateChange((state) => {
-      console.log('📊 State update:', state.status);
-      set({ gameState: state as any });
+      set({ gameState: { ...state } as any });
     });
 
     room.onMessage("notification", (msg) => {
@@ -253,13 +239,13 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     room.onError((code, message) => {
-      console.error('❌ Room error:', code, message);
+      console.error('Room error:', code, message);
       get().addNotification("❌ Connection error: " + message);
     });
 
     room.onLeave((code) => {
-      console.log('👋 Left room:', code);
-      if (code !== 1000) {
+      console.log('Left room with code:', code);
+      if (code !== 1000) { // 1000 = normal closure
         get().addNotification("⚠️ Disconnected from room");
       }
     });
