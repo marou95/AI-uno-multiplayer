@@ -9,10 +9,13 @@ const port = Number(process.env.PORT || 2567);
 const app = express();
 
 // In production, your frontend will be on a different domain (e.g. Vercel)
-// We allow all CORS for simplicity in this demo, or you can restrict to your Vercel URL
 app.use(cors());
-// Fix TypeScript overload mismatch for express.json middleware
 app.use(express.json() as any);
+
+// HEALTH CHECK: Important for Railway/Render to know the app is alive
+app.get("/", (req, res) => {
+  res.status(200).send("UNO Server is running! 🚀");
+});
 
 const gameServer = new Server({
   transport: new WebSocketTransport({
@@ -22,5 +25,6 @@ const gameServer = new Server({
 
 gameServer.define("uno", UNORoom);
 
-gameServer.listen(port);
-console.log(`Listening on ws://localhost:${port}`);
+// Bind to 0.0.0.0 to ensure external access in containerized environments (Railway/Docker)
+gameServer.listen(port, "0.0.0.0");
+console.log(`Listening on ws://0.0.0.0:${port}`);
