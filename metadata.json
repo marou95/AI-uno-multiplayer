@@ -1,0 +1,5 @@
+{
+  "name": "UNO Multiplayer",
+  "description": "A real-time, fully responsive multiplayer UNO card game using WebSocket synchronization.",
+  "requestFramePermissions": []
+}
