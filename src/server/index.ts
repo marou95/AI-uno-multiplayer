@@ -5,7 +5,7 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { UNORoom } from "./UNORoom";
 import cors from "cors";
 
-const port = Number(process.env.PORT || 2567);
+const port = Number(process.env.PORT) || 2567;
 const app = express();
 
 console.log('🚀 Starting UNO Server...');
@@ -51,8 +51,7 @@ gameServer.define("uno", UNORoom).enableRealtimeListing();
 gameServer.listen(port);
 
 console.log('✅ UNO Server is ready!');
-console.log(`🌐 HTTP: http://0.0.0.0:${port}`);
-console.log(`📡 WebSocket: ws://0.0.0.0:${port}`);
+console.log(`🌐 Listening on port: ${port}`);
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection:', reason);
