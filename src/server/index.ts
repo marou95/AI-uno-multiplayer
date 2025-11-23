@@ -1,36 +1,66 @@
 import express from "express";
-import { Server } from "colyseus";
-import { createServer } from "http";
-import { WebSocketTransport } from "@colyseus/ws-transport";
-import { UNORoom } from "./UNORoom";
 import cors from "cors";
+import { Server } from "colyseus";
+import { WebSocketTransport } from "@colyseus/ws-transport";
+import { createServer } from "http";
+import { UNORoom } from "./UNORoom";
 
 const port = Number(process.env.PORT || 2567);
 const app = express();
 
-// Fix CORS: Allow dynamic origin with credentials
-// This is critical for Vercel (frontend) to talk to Railway (backend)
-app.use(cors({
-  origin: true, // Reflects the request origin (e.g. your Vercel URL)
-  credentials: true, // Allow cookies/headers needed by Colyseus
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD']
-}));
+// CORS ultra permissif mais sécurisé en prod
+app.use(
+  cors({
+    origin: true,           // reflète l'origine de la requête (Vercel, localhost, etc.)
+    credentials: true,      // indispensable pour Colyseus (sessionId dans cookie)
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+      "x-client-id",
+    ],
+  })
+);
 
-app.use(express.json() as any);
+// Très important : Colyseus a besoin que le preflight passe AVANT son propre handler
+// Donc on force la réponse OPTIONS ici
+app.options("*", cors()); // répond 204 à tous les preflights
 
-// HEALTH CHECK: Important for Railway/Render to know the app is alive
+app.use(express.json());
+
+// Health check pour Railway / Render
 app.get("/", (req, res) => {
-  res.status(200).send("UNO Server is running! 🚀");
+  res.send("UNO WebSocket Server Running!");
 });
 
+// Création du serveur HTTP
+const httpServer = createServer(app);
+
+// Transport WebSocket Colyseus
 const gameServer = new Server({
   transport: new WebSocketTransport({
-    server: createServer(app),
+    server: httpServer,
   }),
 });
 
-gameServer.define("uno", UNORoom);
+// === CRUCIAL : passe le middleware CORS au transport Colyseus ===
+gameServer.transport.onConnection((connection) => {
+  const httpUpgrade = connection.upgradeReq;
+  if (httpUpgrade.headers.origin) {
+    // Ajoute les headers CORS sur la réponse du handshake WebSocket
+    connection.upgradeReq.headers.origin &&
+      connection.setHeader?.(
+        "Access-Control-Allow-Origin",
+        httpUpgrade.headers.origin
+      );
+    connection.setHeader?.("Access-Control-Allow-Credentials", "true");
+  }
+});
 
-// Bind to 0.0.0.0 to ensure external access in containerized environments (Railway/Docker)
+gameServer.define("uno", UNORoom).enableRealtimeListing();
+
 gameServer.listen(port, "0.0.0.0");
-console.log(`Listening on ws://0.0.0.0:${port}`);
+console.log(`UNO server listening on ws://0.0.0.0:${port}`);
