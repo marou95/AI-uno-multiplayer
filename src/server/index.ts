@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import http from "http";
 import { Server } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
@@ -8,41 +7,54 @@ import { UNORoom } from "./UNORoom";
 const port = Number(process.env.PORT || 2567);
 const app = express();
 
-// === CONFIGURATION CORS ROBUSTE ===
-// Liste des origines explicitement autorisées
-const allowedOrigins = [
-  "http://localhost:5173", // Local frontend
-  "http://localhost:2567", // Local backend
-  "https://ai-uno-multiplayer-production.up.railway.app" // Self
-];
+// === MIDDLEWARE CORS MANUEL ===
+// Cette approche contourne les potentiels problèmes de la librairie 'cors' derrière des proxys
+app.use((req: any, res: any, next: express.NextFunction) => {
+    const origin = req.headers.origin;
 
-const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    // 1. Autoriser les requêtes sans origine (curl, postman, server-to-server)
-    if (!origin) return callback(null, true);
+    // Liste des origines locales pour le dev
+    const allowedOrigins = [
+        "http://localhost:5173",
+        "http://localhost:2567",
+    ];
 
-    // 2. Vérifier si l'origine est dans la liste blanche exacte
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      return callback(null, true);
+    let isAllowed = false;
+
+    if (origin) {
+        // 1. Autoriser localhost
+        if (allowedOrigins.includes(origin)) {
+            isAllowed = true;
+        } 
+        // 2. Autoriser TOUS les déploiements Vercel (.vercel.app)
+        else if (origin.endsWith(".vercel.app")) {
+            isAllowed = true;
+        }
+        // 3. Autoriser le serveur lui-même (self)
+        else if (origin.includes("railway.app")) {
+            isAllowed = true;
+        }
+
+        if (isAllowed) {
+            // Utilisation de .set() au lieu de .setHeader() pour satisfaire les types Express
+            res.set('Access-Control-Allow-Origin', origin);
+        }
     }
 
-    // 3. AUTORISER DYNAMIQUEMENT TOUS LES SOUS-DOMAINES VERCEL
-    // C'est crucial pour vos déploiements de preview et prod (ex: votre url spécifique)
-    if (origin.endsWith(".vercel.app")) {
-      return callback(null, true);
+    // En-têtes standards requis pour Colyseus et les requêtes AJAX
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.set('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Authorization, Origin, Accept');
+    res.set('Access-Control-Allow-Credentials', 'true');
+
+    // Réponse immédiate aux requêtes PREFLIGHT (OPTIONS)
+    if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+        return;
     }
 
-    console.log("🚫 CORS Blocked Origin:", origin);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true, // INDISPENSABLE pour les sessions Colyseus
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
-};
+    next();
+});
 
-// Appliquer CORS immédiatement
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(express.json() as any);
 
 app.get("/", (req, res) => {
   res.send("UNO Server Running! 🚀");

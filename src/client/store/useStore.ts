@@ -2,19 +2,24 @@ import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
 
-// En production sur Railway, on utilise wss://
-// Colyseus.js gérera automatiquement la partie HTTP (https://) pour le matchmaking
+// URL du backend Railway (sans slash à la fin pour éviter les doubles slashes)
 const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 
 const getBackendUrl = () => {
+  // 1. Si une variable d'env est définie (priorité absolue)
   if (import.meta.env.VITE_SERVER_URL) {
     return import.meta.env.VITE_SERVER_URL;
   }
+  
+  // 2. En Production (Vercel, etc.) -> Utiliser Railway
   if (import.meta.env.PROD) {
     return RAILWAY_BACKEND;
   }
-  // En local, on utilise le protocole ws:// sur le host actuel (qui est proxifié par Vite)
-  return window.location.protocol.replace('http', 'ws') + '//' + window.location.host;
+  
+  // 3. En Local -> Utiliser le proxy Vite (ws://localhost:5173/uno -> ws://localhost:2567)
+  // On utilise window.location.host pour garder le port du frontend (5173)
+  const protocol = window.location.protocol.replace('http', 'ws');
+  return `${protocol}//${window.location.host}`;
 };
 
 const SERVER_URL = getBackendUrl();
@@ -67,21 +72,20 @@ export const useStore = create<StoreState>((set, get) => ({
   createRoom: async () => {
     try {
       set({ error: null });
-      console.log("Attempting to joinOrCreate 'uno'...");
+      console.log(`Creating room 'uno' on ${SERVER_URL}...`);
       const room = (await get().client.joinOrCreate("uno", { name: get().nickname })) as Colyseus.Room<UNOState>;
-      // Fix: Use room.roomId instead of room.id as per Colyseus types
-      console.log("Room created successfully", room.roomId);
+      console.log("Room created successfully:", room.roomId);
       get()._setupRoom(room);
     } catch (e: any) {
       console.error("Create Room Error:", e);
-      set({ error: e.message || "Failed to create room. Check console/CORS." });
+      set({ error: "Failed to create room: " + (e.message || "Unknown error") });
     }
   },
 
   joinRoom: async (code) => {
     try {
       set({ error: null });
-      console.log("Attempting to join 'uno' with code:", code);
+      console.log(`Joining room 'uno' with code ${code} on ${SERVER_URL}...`);
       const room = (await get().client.join("uno", { name: get().nickname, code })) as Colyseus.Room<UNOState>; 
       get()._setupRoom(room);
     } catch (e: any) {
