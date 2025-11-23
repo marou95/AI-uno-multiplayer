@@ -228,28 +228,27 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
-    console.log('🔧 Setting up room handlers...');
+    console.log('🔧 Setting up room:', room.roomId);
     set({ room, playerId: room.sessionId, error: null });
 
-    // Écouter les changements d'état - IMPORTANT: force update immédiat
+    // Premier changement d'état (critique pour afficher le lobby)
     room.onStateChange.once((state) => {
-      console.log('📊 Initial state received:', state);
+      console.log('📊 Initial state:', state.status, state.roomCode);
+      // Forcer la mise à jour immédiate
       set({ gameState: state as any });
     });
 
+    // Changements d'état suivants
     room.onStateChange((state) => {
-      console.log('📊 State updated:', state.status);
-      // Force une copie profonde pour déclencher le re-render
-      set({ gameState: JSON.parse(JSON.stringify(state)) });
+      console.log('📊 State update:', state.status);
+      set({ gameState: state as any });
     });
 
     room.onMessage("notification", (msg) => {
-      console.log('📬 Notification:', msg);
       get().addNotification(msg);
     });
 
     room.onMessage("error", (msg) => {
-      console.log('⚠️ Error message:', msg);
       get().addNotification("⚠️ " + msg);
     });
 
@@ -259,8 +258,8 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     room.onLeave((code) => {
-      console.log('👋 Left room with code:', code);
-      if (code !== 1000) { // 1000 = normal closure
+      console.log('👋 Left room:', code);
+      if (code !== 1000) {
         get().addNotification("⚠️ Disconnected from room");
       }
     });

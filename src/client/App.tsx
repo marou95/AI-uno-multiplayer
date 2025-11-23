@@ -11,22 +11,16 @@ const App = () => {
   const [view, setView] = useState<'home' | 'lobby' | 'game'>('home');
 
   useEffect(() => {
-    console.log('🔄 App state changed:', { 
-      hasGameState: !!gameState, 
-      status: gameState?.status,
-      currentView: view 
-    });
-
+    console.log('App update:', { gameState: !!gameState, status: gameState?.status, view });
+    
     if (!gameState) {
       setView('home');
     } else if (gameState.status === GameStatus.LOBBY) {
-      console.log('➡️ Switching to lobby view');
       setView('lobby');
     } else if (gameState.status === GameStatus.PLAYING || gameState.status === GameStatus.FINISHED) {
-      console.log('➡️ Switching to game view');
       setView('game');
     }
-  }, [gameState?.status, gameState]);
+  }, [gameState, gameState?.status]);
 
   // Welcome Screen
   if (view === 'home') {
@@ -48,11 +42,6 @@ const App = () => {
                <input 
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && nickname && !isConnecting) {
-                      createRoom();
-                    }
-                  }}
                   placeholder="Enter your name"
                   disabled={isConnecting}
                   className="w-full bg-slate-900 text-white p-4 rounded-xl border border-slate-600 focus:border-yellow-400 focus:outline-none font-bold text-lg disabled:opacity-50"
@@ -63,26 +52,14 @@ const App = () => {
                 <button 
                    onClick={createRoom}
                    disabled={!nickname || isConnecting}
-                   className="bg-yellow-400 text-yellow-900 font-bold py-4 rounded-xl hover:bg-yellow-300 transition disabled:opacity-50 disabled:cursor-not-allowed relative"
+                   className="bg-yellow-400 text-yellow-900 font-bold py-4 rounded-xl hover:bg-yellow-300 transition disabled:opacity-50"
                 >
-                  {isConnecting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-yellow-900 border-t-transparent rounded-full animate-spin"></span>
-                      Creating...
-                    </span>
-                  ) : (
-                    'Create Room'
-                  )}
+                  {isConnecting ? 'Creating...' : 'Create Room'}
                 </button>
                 <div className="relative">
                    <input 
                       value={code}
                       onChange={(e) => setCode(e.target.value.toUpperCase())}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && nickname && code.length === 5 && !isConnecting) {
-                          joinRoom(code);
-                        }
-                      }}
                       placeholder="CODE"
                       maxLength={5}
                       disabled={isConnecting}
@@ -93,33 +70,15 @@ const App = () => {
              <button 
                 onClick={() => joinRoom(code)}
                 disabled={!nickname || code.length !== 5 || isConnecting}
-                className="w-full bg-blue-500 text-white font-bold py-3 rounded-xl hover:bg-blue-400 transition disabled:opacity-50 disabled:cursor-not-allowed relative"
+                className="w-full bg-blue-500 text-white font-bold py-3 rounded-xl hover:bg-blue-400 transition disabled:opacity-50"
              >
-                {isConnecting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    Joining...
-                  </span>
-                ) : (
-                  'Join Room'
-                )}
+                {isConnecting ? 'Joining...' : 'Join Room'}
              </button>
           </div>
           
           {error && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center font-semibold border border-red-500/20"
-            >
+            <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center font-semibold">
               {error}
-            </motion.div>
-          )}
-
-          {/* Debug info en dev */}
-          {import.meta.env.DEV && (
-            <div className="text-xs text-slate-600 text-center font-mono">
-              State: {gameState?.status || 'none'} | View: {view}
             </div>
           )}
         </motion.div>
@@ -129,38 +88,18 @@ const App = () => {
 
   return (
     <>
-      <AnimatePresence mode="wait">
-        {view === 'lobby' && (
-          <motion.div
-            key="lobby"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <Lobby />
-          </motion.div>
-        )}
-        {view === 'game' && (
-          <motion.div
-            key="game"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <GameBoard />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {view === 'lobby' && <Lobby />}
+      {view === 'game' && <GameBoard />}
       
       {/* Toast Notifications */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none">
         <AnimatePresence>
           {notifications.map((note, i) => (
              <motion.div 
-               key={`${i}-${note}`}
+               key={i}
                initial={{ opacity: 0, y: -20 }}
                animate={{ opacity: 1, y: 0 }}
-               exit={{ opacity: 0, scale: 0.8 }}
+               exit={{ opacity: 0 }}
                className="bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl border border-slate-600 font-semibold text-sm"
              >
                {note}
