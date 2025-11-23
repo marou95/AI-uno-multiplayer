@@ -2,10 +2,17 @@ import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
 
-// In production (Vercel), we must point to the Render/Railway backend URL.
-// In dev, we use the window location to leverage the Vite proxy.
+// Your deployed backend URL (converted from https to wss)
+const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
+
+// Logic:
+// 1. If VITE_SERVER_URL is set (Env var), use it.
+// 2. If we are in PRODUCTION (deployed on Vercel), use the Railway Backend.
+// 3. If we are in DEVELOPMENT (localhost), use the local server (via Vite proxy).
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 
-   (window.location.protocol.replace('http', 'ws') + '//' + window.location.host);
+  (import.meta.env.PROD 
+    ? RAILWAY_BACKEND 
+    : (window.location.protocol.replace('http', 'ws') + '//' + window.location.host));
 
 interface StoreState {
   client: Colyseus.Client;
