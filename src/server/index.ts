@@ -8,8 +8,14 @@ import cors from "cors";
 const port = Number(process.env.PORT || 2567);
 const app = express();
 
-// In production, your frontend will be on a different domain (e.g. Vercel)
-app.use(cors());
+// Fix CORS: Allow dynamic origin with credentials
+// This is critical for Vercel (frontend) to talk to Railway (backend)
+app.use(cors({
+  origin: true, // Reflects the request origin (e.g. your Vercel URL)
+  credentials: true, // Allow cookies/headers needed by Colyseus
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD']
+}));
+
 app.use(express.json() as any);
 
 // HEALTH CHECK: Important for Railway/Render to know the app is alive
