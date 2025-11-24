@@ -82,6 +82,10 @@ export class UNORoom extends Room<UNOState> {
   onJoin(client: Client, options: any) {
     console.log(`👤 [UNORoom] Client joining: ${client.sessionId}`);
     try {
+      if (!this.state) {
+        throw new Error("State is not initialized");
+      }
+
       const player = new Player();
       player.id = client.sessionId;
       player.sessionId = client.sessionId;
@@ -91,8 +95,9 @@ export class UNORoom extends Room<UNOState> {
       this.playerIndexes.push(client.sessionId);
       
       console.log(`✅ [UNORoom] Client ${client.sessionId} added to state. Total players: ${this.state.players.size}`);
-    } catch (e) {
+    } catch (e: any) {
       console.error("❌ Error in onJoin:", e);
+      if (e.stack) console.error(e.stack);
       client.leave(4000); // Close with error code if join fails
     }
   }

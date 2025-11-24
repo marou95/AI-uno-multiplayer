@@ -21,7 +21,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
 
-app.use(express.json() as any);
+// Safe type casting for express.json
+app.use(express.json() as express.RequestHandler);
 
 app.use('/matchmake/*', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || "*");
@@ -42,9 +43,8 @@ const server = http.createServer(app);
 const gameServer = new Server({
   transport: new WebSocketTransport({
     server: server,
-    // Disable ping interval to prevent premature disconnects on some proxies
-    // The client can handle its own keep-alive if needed, or we rely on TCP
-    pingInterval: 0, 
+    // Enable default ping/pong to keep connections alive on Railway
+    // Default is 3000ms check, 2 retries
     verifyClient: (info, next) => {
       // Allow all connections
       next(true);

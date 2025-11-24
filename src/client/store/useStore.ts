@@ -1,26 +1,20 @@
-/// <reference types="vite/client" />
-
 import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
 
-// We augment the existing ImportMetaEnv from vite/client
-// We do NOT redeclare PROD or the index signature to avoid conflicts
-declare global {
-  interface ImportMetaEnv {
-    readonly VITE_SERVER_URL: string;
-  }
-}
-
 const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 
 const getBackendUrl = () => {
-  if (import.meta.env.VITE_SERVER_URL) {
-    console.log('Using VITE_SERVER_URL:', import.meta.env.VITE_SERVER_URL);
-    return import.meta.env.VITE_SERVER_URL;
+  // Cast to any to access custom env vars without conflicting with vite/client types or missing types
+  const meta = import.meta as any;
+  const env = meta.env || {};
+  
+  if (env.VITE_SERVER_URL) {
+    console.log('Using VITE_SERVER_URL:', env.VITE_SERVER_URL);
+    return env.VITE_SERVER_URL;
   }
   
-  if (import.meta.env.PROD) {
+  if (env.PROD) {
     console.log('Production mode, using Railway');
     return RAILWAY_BACKEND;
   }
