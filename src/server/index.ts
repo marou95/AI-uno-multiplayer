@@ -21,7 +21,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
 
-app.use(express.json());
+app.use(express.json() as any);
 
 app.use('/matchmake/*', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || "*");

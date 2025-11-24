@@ -1,17 +1,14 @@
+/// <reference types="vite/client" />
+
 import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
 
-// Define types for Vite environment variables since vite/client might be missing
+// We augment the existing ImportMetaEnv from vite/client
+// We do NOT redeclare PROD or the index signature to avoid conflicts
 declare global {
   interface ImportMetaEnv {
     readonly VITE_SERVER_URL: string;
-    readonly PROD: boolean;
-    readonly [key: string]: any;
-  }
-
-  interface ImportMeta {
-    readonly env: ImportMetaEnv;
   }
 }
 
