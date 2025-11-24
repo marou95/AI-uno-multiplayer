@@ -86,19 +86,26 @@ export class UNORoom extends Room<UNOState> {
         throw new Error("State is not initialized");
       }
 
+      const name = options?.name || "Guest";
+
       const player = new Player();
       player.id = client.sessionId;
       player.sessionId = client.sessionId;
-      player.name = options.name || "Guest";
+      player.name = name;
       
       this.state.players.set(client.sessionId, player);
+      
+      if (!this.playerIndexes) this.playerIndexes = [];
       this.playerIndexes.push(client.sessionId);
       
       console.log(`✅ [UNORoom] Client ${client.sessionId} added to state. Total players: ${this.state.players.size}`);
     } catch (e: any) {
       console.error("❌ Error in onJoin:", e);
       if (e.stack) console.error(e.stack);
-      client.leave(4000); // Close with error code if join fails
+      
+      // Send error to client before closing
+      client.send("error", `Join failed: ${e.message}`);
+      setTimeout(() => client.leave(4000), 200);
     }
   }
 
@@ -120,16 +127,18 @@ export class UNORoom extends Room<UNOState> {
       }
     } catch (e) {
       // Cleanup if reconnection failed
-      const player = this.state.players.get(client.sessionId);
-      if (player) {
-        this.state.players.delete(client.sessionId);
-        this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
-        this.broadcast("notification", `${player.name} left the game.`);
-        
-        if (this.state.players.size < 2 && this.state.status === GameStatus.PLAYING) {
-           this.state.status = GameStatus.LOBBY;
-           this.broadcast("notification", "Game reset due to lack of players.");
-           console.log("🔄 Game Reset to Lobby");
+      if (this.state && this.state.players) {
+        const player = this.state.players.get(client.sessionId);
+        if (player) {
+            this.state.players.delete(client.sessionId);
+            this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
+            this.broadcast("notification", `${player.name} left the game.`);
+            
+            if (this.state.players.size < 2 && this.state.status === GameStatus.PLAYING) {
+            this.state.status = GameStatus.LOBBY;
+            this.broadcast("notification", "Game reset due to lack of players.");
+            console.log("🔄 Game Reset to Lobby");
+            }
         }
       }
     }

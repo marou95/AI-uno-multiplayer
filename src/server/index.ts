@@ -22,7 +22,7 @@ app.use(cors({
 }));
 
 // Safe type casting for express.json
-app.use(express.json() as express.RequestHandler);
+app.use(express.json());
 
 app.use('/matchmake/*', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || "*");
