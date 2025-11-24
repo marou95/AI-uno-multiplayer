@@ -21,8 +21,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
 
-// Safe type casting for express.json
-app.use(express.json());
+app.use(express.json() as express.RequestHandler);
 
 app.use('/matchmake/*', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || "*");
@@ -42,17 +41,15 @@ const server = http.createServer(app);
 
 const gameServer = new Server({
   transport: new WebSocketTransport({
-    server: server,
-    // Enable default ping/pong to keep connections alive on Railway
-    // Default is 3000ms check, 2 retries
-    verifyClient: (info, next) => {
-      // Allow all connections
-      next(true);
-    }
+    server: server
   }),
 });
 
-gameServer.define("uno", UNORoom).enableRealtimeListing();
+// Register room with filterBy to ensure 'join' only finds rooms by exact roomCode
+gameServer
+  .define("uno", UNORoom)
+  .filterBy(['roomCode'])
+  .enableRealtimeListing();
 
 gameServer.listen(port);
 console.log(`✅ Server ready on port ${port}`);

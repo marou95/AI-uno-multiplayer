@@ -5,34 +5,56 @@ import { v4 as uuidv4 } from 'uuid';
 
 export class UNORoom extends Room<UNOState> {
   maxClients = 6;
-  playerIndexes: string[] = []; // maintain turn order
+  playerIndexes: string[] = []; // Initialize here to avoid undefined access
 
   onCreate(options: any) {
-    console.log("🏠 [UNORoom] onCreate called");
+    console.log("🏠 [UNORoom] Creating new room...");
     
-    // Set patch rate to 20fps (50ms) to ensure smooth updates
-    this.setPatchRate(50);
+    // 1. Initialize State immediately
+    this.setState(new UNOState());
+    
+    // 2. Generate and Set Room Code
+    const roomCode = this.generateRoomCode();
+    this.state.roomCode = roomCode;
+    console.log(`✅ Room Created! ID: ${this.roomId} | Code: ${roomCode}`);
 
-    try {
-      console.log("   Initializing State...");
-      const newState = new UNOState();
-      this.setState(newState);
-      console.log("   State Initialized.");
+    // 3. Set Metadata for Matchmaking (Crucial for filterBy(['roomCode']))
+    this.setMetadata({
+      roomCode: roomCode,
+      status: 'Lobby'
+    }).then(() => {
+       console.log(`📦 Metadata set for room ${roomCode}`);
+    }).catch(err => {
+       console.error("❌ Failed to set metadata:", err);
+    });
 
-      this.state.roomCode = this.generateRoomCode();
-      console.log(`✅ Room Created! ID: ${this.roomId}, Code: ${this.state.roomCode}`);
-      
-      // Metadata for lobby listing (optional but good practice)
-      this.setMetadata({
-        code: this.state.roomCode,
-        status: 'Lobby'
-      });
+    // 4. Setup Handlers
+    this.setPatchRate(50); // 20fps
+    this.setupMessageHandlers();
+  }
 
-      this.setupMessageHandlers();
-    } catch (e) {
-      console.error("❌ CRITICAL ERROR in onCreate:", e);
-      this.disconnect();
+  onJoin(client: Client, options: any) {
+    console.log(`👤 [UNORoom] Client joining: ${client.sessionId}`);
+    
+    // Validations
+    if (this.state.status === GameStatus.PLAYING) {
+        // TODO: Handle reconnection logic specifically if needed, 
+        // for now we prevent new joins during game unless it's a reconnect (handled by onLeave/reconnection token usually)
+        // For simplicity in this demo, we allow join but they will be spectators or waiting.
+        console.log(`⚠️ Client ${client.sessionId} joined active game.`);
     }
+
+    const name = options?.name || "Guest";
+
+    const player = new Player();
+    player.id = client.sessionId;
+    player.sessionId = client.sessionId;
+    player.name = name;
+    
+    this.state.players.set(client.sessionId, player);
+    this.playerIndexes.push(client.sessionId);
+    
+    console.log(`✅ Client ${client.sessionId} (${name}) joined successfully.`);
   }
 
   setupMessageHandlers() {
@@ -40,7 +62,7 @@ export class UNORoom extends Room<UNOState> {
       const player = this.state.players.get(client.sessionId);
       if (player) {
         player.name = data.name || "Guest";
-        console.log(`📝 Player ${client.sessionId} renamed to ${player.name}`);
+        // Also update metadata if host? No need for now.
       }
     });
 
@@ -49,14 +71,17 @@ export class UNORoom extends Room<UNOState> {
       const player = this.state.players.get(client.sessionId);
       if (player) {
         player.isReady = !player.isReady;
-        console.log(`✅ Player ${player.name} is now ${player.isReady ? 'Ready' : 'Not Ready'}`);
       }
     });
 
     this.onMessage("startGame", (client: Client) => {
       if (this.state.status !== GameStatus.LOBBY) return;
+      // Simple host check: Host is usually the first player in the map or indexes
+      const isHost = this.playerIndexes[0] === client.sessionId;
+      
+      if (!isHost) return;
+
       const readyCount = Array.from(this.state.players.values()).filter((p: Player) => p.isReady).length;
-      console.log(`▶️ Start Game Requested. Ready: ${readyCount}/${this.state.players.size}`);
       if (readyCount >= 2 && readyCount === this.state.players.size) {
         this.startGame();
       }
@@ -79,67 +104,37 @@ export class UNORoom extends Room<UNOState> {
     });
   }
 
-  onJoin(client: Client, options: any) {
-    console.log(`👤 [UNORoom] Client joining: ${client.sessionId}`);
-    try {
-      if (!this.state) {
-        throw new Error("State is not initialized");
-      }
-
-      const name = options?.name || "Guest";
-
-      const player = new Player();
-      player.id = client.sessionId;
-      player.sessionId = client.sessionId;
-      player.name = name;
-      
-      this.state.players.set(client.sessionId, player);
-      
-      if (!this.playerIndexes) this.playerIndexes = [];
-      this.playerIndexes.push(client.sessionId);
-      
-      console.log(`✅ [UNORoom] Client ${client.sessionId} added to state. Total players: ${this.state.players.size}`);
-    } catch (e: any) {
-      console.error("❌ Error in onJoin:", e);
-      if (e.stack) console.error(e.stack);
-      
-      // Send error to client before closing
-      client.send("error", `Join failed: ${e.message}`);
-      setTimeout(() => client.leave(4000), 200);
-    }
-  }
-
   async onLeave(client: Client, consented: boolean) {
-    console.log(`👋 Client left: ${client.sessionId}, Consented: ${consented}`);
+    console.log(`👋 Client left: ${client.sessionId}`);
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    player.isConnected = false;
+
     try {
-      const player = this.state.players.get(client.sessionId);
-      if (player) {
-        player.isConnected = false;
-        if (this.state.status === GameStatus.LOBBY) {
-          this.state.players.delete(client.sessionId);
-          this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
-        } else {
-          if (consented) throw new Error("Consented leave");
-          await this.allowReconnection(client, 30);
-          player.isConnected = true;
-          console.log(`♻️ Client reconnected: ${client.sessionId}`);
-        }
+      if (consented) {
+          throw new Error("consented_leave");
       }
+      // Allow reconnection for 20 seconds
+      await this.allowReconnection(client, 20);
+      player.isConnected = true;
+      console.log(`♻️ Client reconnected: ${client.sessionId}`);
+
     } catch (e) {
-      // Cleanup if reconnection failed
-      if (this.state && this.state.players) {
-        const player = this.state.players.get(client.sessionId);
-        if (player) {
-            this.state.players.delete(client.sessionId);
-            this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
-            this.broadcast("notification", `${player.name} left the game.`);
-            
-            if (this.state.players.size < 2 && this.state.status === GameStatus.PLAYING) {
-            this.state.status = GameStatus.LOBBY;
-            this.broadcast("notification", "Game reset due to lack of players.");
-            console.log("🔄 Game Reset to Lobby");
-            }
-        }
+      // Handle permanent leave
+      this.state.players.delete(client.sessionId);
+      this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
+      
+      if (this.state.status === GameStatus.LOBBY) {
+         // Just remove from lobby
+      } else {
+         this.broadcast("notification", `${player.name} left the game.`);
+         // If too few players, reset
+         if (this.state.players.size < 2) {
+             this.state.status = GameStatus.LOBBY;
+             this.broadcast("notification", "Game reset (too few players).");
+             console.log("🔄 Game Reset to Lobby");
+         }
       }
     }
   }
@@ -147,12 +142,7 @@ export class UNORoom extends Room<UNOState> {
   startGame() {
     console.log("🃏 Starting Game...");
     this.state.status = GameStatus.PLAYING;
-    
-    // Update metadata
-    this.setMetadata({
-        code: this.state.roomCode,
-        status: 'Playing'
-    });
+    this.setMetadata({ status: 'Playing' });
 
     this.createDeck();
     this.shuffleDeck();
@@ -160,7 +150,7 @@ export class UNORoom extends Room<UNOState> {
     this.playerIndexes.forEach(sessionId => {
       const player = this.state.players.get(sessionId);
       if (player) {
-        player.hand.clear(); // Ensure clear hand
+        player.hand.clear(); 
         for (let i = 0; i < 7; i++) {
           this.moveCardFromDrawToHand(player);
         }
@@ -179,7 +169,6 @@ export class UNORoom extends Room<UNOState> {
     }
 
     this.state.currentTurnPlayerId = this.playerIndexes[0];
-    console.log(`🏁 Game Started. Turn: ${this.state.currentTurnPlayerId}`);
   }
 
   handlePlayCard(client: Client, cardId: string, chooseColor?: CardColor) {
@@ -207,7 +196,6 @@ export class UNORoom extends Room<UNOState> {
     } else if (player.hand.length === 0) {
         this.state.winner = player.name;
         this.state.status = GameStatus.FINISHED;
-        console.log(`🏆 Winner: ${player.name}`);
         return;
     }
 
@@ -360,7 +348,7 @@ export class UNORoom extends Room<UNOState> {
   }
 
   generateRoomCode() {
-    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Removed I, O to avoid confusion
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     let code = '';
     for (let i = 0; i < 5; i++) {
       code += letters.charAt(Math.floor(Math.random() * letters.length));
