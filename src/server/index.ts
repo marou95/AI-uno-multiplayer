@@ -12,16 +12,31 @@ console.log('🚀 Starting UNO Server...');
 console.log('📍 Port:', port);
 console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
 
+// Trust headers from Railway/Vercel proxies
+app.set('trust proxy', 1);
+
+// Middleware for CORS
 app.use(cors({
-  origin: '*',
+  origin: true, // Allow any origin reflecting the request origin
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  optionsSuccessStatus: 200
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
 
-app.options('*', cors());
-app.use(express.json());
+app.use(express.json() as express.RequestHandler);
+
+// Specialized middleware for Matchmaking to prevent 404s interfering with Colyseus
+app.use('/matchmake/*', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || "*");
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 app.get("/", (req, res) => {
   console.log('✅ Health check');
@@ -41,8 +56,12 @@ const server = http.createServer(app);
 const gameServer = new Server({
   transport: new WebSocketTransport({
     server: server,
-    pingInterval: 6000,
-    pingMaxRetries: 4,
+    pingInterval: 10000, // Increased to reduce aggressive timeouts
+    pingMaxRetries: 5,
+    verifyClient: (info, next) => {
+      // Allow all connections in production to avoid strict Origin/Header blocks causing 1006
+      next(true);
+    }
   }),
 });
 
@@ -59,5 +78,5 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  process.exit(1);
+  // Do not exit immediately to keep server alive for other rooms if possible
 });

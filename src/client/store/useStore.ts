@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
@@ -81,7 +82,8 @@ export const useStore = create<StoreState>((set, get) => ({
       
       const room = await store.client.joinOrCreate("uno", { name: nickname }) as Colyseus.Room<UNOState>;
       
-      console.log("✅ Room created:", room.roomId);
+      console.log("✅ Room Connected! Internal ID:", room.roomId);
+      console.log("⏳ Waiting for game state (Room Code)...");
       
       store._setupRoom(room);
       set({ isConnecting: false });
@@ -90,7 +92,8 @@ export const useStore = create<StoreState>((set, get) => ({
       console.error("❌ Create error:", e);
       
       let errorMessage = "Failed to create room";
-      if (e.message?.includes('CORS')) errorMessage = "CORS error - Check server";
+      if (e.message?.includes('1006')) errorMessage = "Connection Closed (1006) - Try again";
+      else if (e.message?.includes('CORS')) errorMessage = "CORS error - Check server";
       else if (e.message?.includes('fetch')) errorMessage = "Cannot reach server";
       else if (e.message) errorMessage = e.message;
       
@@ -117,9 +120,10 @@ export const useStore = create<StoreState>((set, get) => ({
 
       console.log(`🎮 Joining room ${roomCode}...`);
       
+      // We pass 'code' in options so the server can filter room candidates
       const room = await store.client.join("uno", { name: nickname, code: roomCode }) as Colyseus.Room<UNOState>;
       
-      console.log("✅ Joined room:", room.roomId);
+      console.log("✅ Joined room (Internal ID):", room.roomId);
       
       store._setupRoom(room);
       set({ isConnecting: false });
@@ -146,17 +150,19 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
-    console.log('🔧 Setup room:', room.roomId);
+    console.log('🔧 Setup room listeners:', room.roomId);
     set({ room, playerId: room.sessionId, error: null });
     
-
     room.onStateChange.once((state) => {
-      console.log('📊 Initial state:', state.status, state.roomCode);
+      console.log('📊 Initial state received. Code:', state.roomCode);
       set({ gameState: state as any });
     });
 
     room.onStateChange((state) => {
-      console.log('📊 State update:', state.status);
+      // Debug log every few updates or on status change
+      if (get().gameState?.status !== state.status) {
+         console.log('📊 State status update:', state.status);
+      }
       set({ gameState: state as any });
     });
 
@@ -165,12 +171,18 @@ export const useStore = create<StoreState>((set, get) => ({
     
     room.onError((code, message) => {
       console.error('❌ Room error:', code, message);
-      get().addNotification("❌ " + message);
+      get().addNotification("❌ Error: " + message);
     });
 
     room.onLeave((code) => {
-      console.log('👋 Left:', code);
-      if (code !== 1000) get().addNotification("⚠️ Disconnected");
+      console.log('👋 Connection Closed. Code:', code);
+      if (code !== 1000) {
+        get().addNotification("⚠️ Disconnected (" + code + ")");
+        // If we disconnect abnormally, clear the state so UI returns to home
+        set({ room: null, gameState: null, playerId: null, isConnecting: false, error: `Disconnected (${code})` });
+      } else {
+        set({ room: null, gameState: null, playerId: null, isConnecting: false });
+      }
     });
   },
 

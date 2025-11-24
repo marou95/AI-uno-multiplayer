@@ -9,9 +9,20 @@ export class UNORoom extends Room<UNOState> {
   playerIndexes: string[] = []; // maintain turn order
 
   onCreate(options: any) {
-    (this as any).setState(new UNOState());
-    this.state.roomCode = this.generateRoomCode();
-    
+    console.log("🏠 Creating new room...");
+    try {
+      (this as any).setState(new UNOState());
+      this.state.roomCode = this.generateRoomCode();
+      console.log(`✅ Room Created! Internal ID: ${this.roomId}, Public Code: ${this.state.roomCode}`);
+      
+      this.setupMessageHandlers();
+    } catch (e) {
+      console.error("❌ Error in onCreate:", e);
+      this.disconnect();
+    }
+  }
+
+  setupMessageHandlers() {
     (this as any).onMessage("setInfo", (client: Client, data: any) => {
       const player = this.state.players.get(client.sessionId);
       if (player) {
@@ -52,15 +63,21 @@ export class UNORoom extends Room<UNOState> {
   }
 
   onJoin(client: Client, options: any) {
-    const player = new Player();
-    player.id = client.sessionId;
-    player.sessionId = client.sessionId;
-    player.name = options.name || "Guest";
-    this.state.players.set(client.sessionId, player);
-    this.playerIndexes.push(client.sessionId);
+    console.log(`👤 Client joined: ${client.sessionId}`);
+    try {
+      const player = new Player();
+      player.id = client.sessionId;
+      player.sessionId = client.sessionId;
+      player.name = options.name || "Guest";
+      this.state.players.set(client.sessionId, player);
+      this.playerIndexes.push(client.sessionId);
+    } catch (e) {
+      console.error("❌ Error in onJoin:", e);
+    }
   }
 
   async onLeave(client: Client, consented: boolean) {
+    console.log(`👋 Client left: ${client.sessionId}, Consented: ${consented}`);
     const player = this.state.players.get(client.sessionId);
     if (player) {
       player.isConnected = false;
@@ -73,6 +90,7 @@ export class UNORoom extends Room<UNOState> {
           if (consented) throw new Error("Consented leave");
           await (this as any).allowReconnection(client, 30);
           player.isConnected = true;
+          console.log(`♻️ Client reconnected: ${client.sessionId}`);
         } catch (e) {
           this.state.players.delete(client.sessionId);
           this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
