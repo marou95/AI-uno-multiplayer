@@ -1,4 +1,5 @@
 import { Room, Client } from "colyseus";
+import { ArraySchema } from "@colyseus/schema";
 import { UNOState, Player, Card } from "./schema/UNOState";
 import { CardColor, CardType, GameStatus } from "../shared/types";
 import { v4 as uuidv4 } from 'uuid';
@@ -52,22 +53,24 @@ export class UNORoom extends Room<UNOState> {
   }
 
   onJoin(client: Client, options: any) {
-    console.log(`👤 Client joining: ${client.sessionId}`);
-    
-    const player = new Player();
-    player.id = client.sessionId;
-    player.sessionId = client.sessionId;
-    player.name = options.name || "Guest";
-    player.isReady = false;
-    player.isConnected = true;
-    player.hasSaidUno = false;
-    player.cardsRemaining = 0;
-    
-    this.state.players.set(client.sessionId, player);
-    this.playerIndexes.push(client.sessionId);
-    
-    console.log(`✅ ${player.name} joined room ${this.state.roomCode}`);
-  }
+  console.log(`👤 Client joining: ${client.sessionId}`);
+  
+  const player = new Player();
+  player.id = client.sessionId;
+  player.sessionId = client.sessionId;
+  player.name = options.name || "Guest";
+  player.isReady = false;
+  player.isConnected = true;
+  player.hasSaidUno = false;
+  player.cardsRemaining = 0;
+  // CRITIQUE : Initialiser hand comme ArraySchema vide
+  player.hand = new ArraySchema<Card>();
+  
+  this.state.players.set(client.sessionId, player);
+  this.playerIndexes.push(client.sessionId);
+  
+  console.log(`✅ ${player.name} joined room ${this.state.roomCode}`);
+}
 
   async onLeave(client: Client, consented: boolean) {
     const player = this.state.players.get(client.sessionId);
