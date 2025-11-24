@@ -1,100 +1,33 @@
-
 import { Room, Client } from "colyseus";
-import { ArraySchema } from "@colyseus/schema";
 import { UNOState, Player, Card } from "./schema/UNOState";
 import { CardColor, CardType, GameStatus } from "../shared/types";
-
-// Helper to generate IDs without external dependencies
-const generateId = () => Math.random().toString(36).substring(2, 9);
+import { v4 as uuidv4 } from 'uuid';
 
 export class UNORoom extends Room<UNOState> {
   maxClients = 6;
-  playerIndexes: string[] = []; 
+  playerIndexes: string[] = [];
 
-  async onCreate(options: any) {
-    console.log("🏠 [UNORoom] Creating new room...");
-    
-    // 1. Initialize State & Arrays explicitly
+  onCreate(options: any) {
     this.setState(new UNOState());
-    this.playerIndexes = []; 
+    this.state.roomCode = this.generateRoomCode();
     
-    // 2. Generate and Set Room Code
-    const roomCode = this.generateRoomCode();
-    this.state.roomCode = roomCode;
-    console.log(`✅ Room Created! ID: ${this.roomId} | Code: ${roomCode}`);
+    console.log(`✅ Room created: ${this.roomId} | Code: ${this.state.roomCode}`);
+    
+    this.setMetadata({ roomCode: this.state.roomCode });
 
-    // 3. Set Metadata for Matchmaking (Crucial for filterBy(['roomCode']))
-    // We await this to ensure matchmaking is ready before we consider creation 'done'
-    try {
-      await this.setMetadata({
-        roomCode: roomCode,
-        status: 'Lobby'
-      });
-      console.log(`📦 Metadata set for room ${roomCode}`);
-    } catch (err) {
-      console.error("❌ Failed to set metadata:", err);
-    }
-
-    // 4. Setup Handlers
-    this.setPatchRate(50); // 20fps
-    this.setupMessageHandlers();
-  }
-
-  onJoin(client: Client, options: any) {
-    try {
-      console.log(`👤 [UNORoom] Client joining: ${client.sessionId}`);
-      
-      // Validations
-      if (this.state.status !== GameStatus.LOBBY) {
-         console.log(`⚠️ Client ${client.sessionId} attempting to join active game.`);
-         // Optional: Allow reconnect logic here if needed
-      }
-
-      const name = options?.name || "Guest";
-
-      const player = new Player();
-      player.id = client.sessionId;
-      player.sessionId = client.sessionId;
-      player.name = name;
-      player.hand = new ArraySchema<Card>(); // Ensure hand is initialized
-      
-      this.state.players.set(client.sessionId, player);
-      
-      // Defensive push
-      if (!this.playerIndexes) this.playerIndexes = [];
-      this.playerIndexes.push(client.sessionId);
-      
-      console.log(`✅ Client ${client.sessionId} (${name}) joined successfully.`);
-    } catch (e) {
-      console.error("❌ CRITICAL ERROR IN ONJOIN:", e);
-      // Close connection with a specific application error code instead of crashing the server
-      client.leave(4001); 
-    }
-  }
-
-  setupMessageHandlers() {
     this.onMessage("setInfo", (client: Client, data: any) => {
       const player = this.state.players.get(client.sessionId);
-      if (player) {
-        player.name = data.name || "Guest";
-      }
+      if (player) player.name = data.name || "Guest";
     });
 
     this.onMessage("toggleReady", (client: Client) => {
       if (this.state.status !== GameStatus.LOBBY) return;
       const player = this.state.players.get(client.sessionId);
-      if (player) {
-        player.isReady = !player.isReady;
-      }
+      if (player) player.isReady = !player.isReady;
     });
 
     this.onMessage("startGame", (client: Client) => {
       if (this.state.status !== GameStatus.LOBBY) return;
-      // Host is the first player in the indexes
-      const isHost = this.playerIndexes[0] === client.sessionId;
-      
-      if (!isHost) return;
-
       const readyCount = Array.from(this.state.players.values()).filter((p: Player) => p.isReady).length;
       if (readyCount >= 2 && readyCount === this.state.players.size) {
         this.startGame();
@@ -118,57 +51,57 @@ export class UNORoom extends Room<UNOState> {
     });
   }
 
+  onJoin(client: Client, options: any) {
+    console.log(`👤 Client joining: ${client.sessionId}`);
+    
+    const player = new Player();
+    player.id = client.sessionId;
+    player.sessionId = client.sessionId;
+    player.name = options.name || "Guest";
+    player.isReady = false;
+    player.isConnected = true;
+    player.hasSaidUno = false;
+    player.cardsRemaining = 0;
+    
+    this.state.players.set(client.sessionId, player);
+    this.playerIndexes.push(client.sessionId);
+    
+    console.log(`✅ ${player.name} joined room ${this.state.roomCode}`);
+  }
+
   async onLeave(client: Client, consented: boolean) {
-    console.log(`👋 Client left: ${client.sessionId}`);
     const player = this.state.players.get(client.sessionId);
-    if (!player) return;
-
-    player.isConnected = false;
-
-    try {
-      if (consented) {
-          throw new Error("consented_leave");
-      }
-      // Allow reconnection for 20 seconds
-      await this.allowReconnection(client, 20);
-      player.isConnected = true;
-      console.log(`♻️ Client reconnected: ${client.sessionId}`);
-
-    } catch (e) {
-      // Handle permanent leave
-      if (this.state.players.has(client.sessionId)) {
+    if (player) {
+      player.isConnected = false;
+      if (this.state.status === GameStatus.LOBBY) {
         this.state.players.delete(client.sessionId);
-      }
-      
-      if (this.playerIndexes) {
         this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
-      }
-      
-      if (this.state.status !== GameStatus.LOBBY) {
-         this.broadcast("notification", `${player.name} left the game.`);
-         // If too few players, reset
-         if (this.state.players.size < 2) {
+      } else {
+        try {
+          if (consented) throw new Error("Consented leave");
+          await this.allowReconnection(client, 30);
+          player.isConnected = true;
+        } catch (e) {
+          this.state.players.delete(client.sessionId);
+          this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
+          this.broadcast("notification", `${player.name} left the game.`);
+          if (this.state.players.size < 2) {
              this.state.status = GameStatus.LOBBY;
-             this.broadcast("notification", "Game reset (too few players).");
-             this.setMetadata({ status: 'Lobby' }).catch(console.error);
-             console.log("🔄 Game Reset to Lobby");
-         }
+             this.broadcast("notification", "Game reset due to lack of players.");
+          }
+        }
       }
     }
   }
 
   startGame() {
-    console.log("🃏 Starting Game...");
     this.state.status = GameStatus.PLAYING;
-    this.setMetadata({ status: 'Playing' }).catch(console.error);
-
     this.createDeck();
     this.shuffleDeck();
     
     this.playerIndexes.forEach(sessionId => {
       const player = this.state.players.get(sessionId);
       if (player) {
-        player.hand.clear(); 
         for (let i = 0; i < 7; i++) {
           this.moveCardFromDrawToHand(player);
         }
@@ -284,7 +217,6 @@ export class UNORoom extends Room<UNOState> {
      
      if (skip) nextIndex += this.state.direction;
 
-     // Modulo arithmetic for circular array
      if (nextIndex >= this.playerIndexes.length) nextIndex = nextIndex % this.playerIndexes.length;
      if (nextIndex < 0) nextIndex = this.playerIndexes.length + (nextIndex % this.playerIndexes.length);
 
@@ -305,7 +237,6 @@ export class UNORoom extends Room<UNOState> {
         this.state.discardPile.clear();
         if(top) this.state.discardPile.push(top);
         
-        // Shuffle rest
         for (let i = rest.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [rest[i], rest[j]] = [rest[j], rest[i]];
@@ -349,7 +280,7 @@ export class UNORoom extends Room<UNOState> {
 
   addCard(color: CardColor, type: CardType, value: number = -1) {
      const card = new Card();
-     card.id = generateId();
+     card.id = uuidv4();
      card.color = color;
      card.type = type;
      card.value = value;
@@ -367,7 +298,7 @@ export class UNORoom extends Room<UNOState> {
   }
 
   generateRoomCode() {
-    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let code = '';
     for (let i = 0; i < 5; i++) {
       code += letters.charAt(Math.floor(Math.random() * letters.length));
