@@ -4,115 +4,149 @@ import { CardColor, CardType, GameStatus } from "../shared/types";
 import { v4 as uuidv4 } from 'uuid';
 
 export class UNORoom extends Room<UNOState> {
-  declare state: UNOState;
   maxClients = 6;
   playerIndexes: string[] = []; // maintain turn order
 
   onCreate(options: any) {
-    console.log("🏠 Creating new room...");
+    console.log("🏠 [UNORoom] onCreate called");
+    
+    // Set patch rate to 20fps (50ms) to ensure smooth updates
+    this.setPatchRate(50);
+
     try {
-      (this as any).setState(new UNOState());
+      console.log("   Initializing State...");
+      const newState = new UNOState();
+      this.setState(newState);
+      console.log("   State Initialized.");
+
       this.state.roomCode = this.generateRoomCode();
-      console.log(`✅ Room Created! Internal ID: ${this.roomId}, Public Code: ${this.state.roomCode}`);
+      console.log(`✅ Room Created! ID: ${this.roomId}, Code: ${this.state.roomCode}`);
       
+      // Metadata for lobby listing (optional but good practice)
+      this.setMetadata({
+        code: this.state.roomCode,
+        status: 'Lobby'
+      });
+
       this.setupMessageHandlers();
     } catch (e) {
-      console.error("❌ Error in onCreate:", e);
+      console.error("❌ CRITICAL ERROR in onCreate:", e);
       this.disconnect();
     }
   }
 
   setupMessageHandlers() {
-    (this as any).onMessage("setInfo", (client: Client, data: any) => {
+    this.onMessage("setInfo", (client: Client, data: any) => {
       const player = this.state.players.get(client.sessionId);
       if (player) {
         player.name = data.name || "Guest";
+        console.log(`📝 Player ${client.sessionId} renamed to ${player.name}`);
       }
     });
 
-    (this as any).onMessage("toggleReady", (client: Client) => {
+    this.onMessage("toggleReady", (client: Client) => {
       if (this.state.status !== GameStatus.LOBBY) return;
       const player = this.state.players.get(client.sessionId);
-      if (player) player.isReady = !player.isReady;
+      if (player) {
+        player.isReady = !player.isReady;
+        console.log(`✅ Player ${player.name} is now ${player.isReady ? 'Ready' : 'Not Ready'}`);
+      }
     });
 
-    (this as any).onMessage("startGame", (client: Client) => {
+    this.onMessage("startGame", (client: Client) => {
       if (this.state.status !== GameStatus.LOBBY) return;
-      // Host check omitted for simplicity, allowing any player to start if conditions met
       const readyCount = Array.from(this.state.players.values()).filter((p: Player) => p.isReady).length;
+      console.log(`▶️ Start Game Requested. Ready: ${readyCount}/${this.state.players.size}`);
       if (readyCount >= 2 && readyCount === this.state.players.size) {
         this.startGame();
       }
     });
 
-    (this as any).onMessage("playCard", (client: Client, data: { cardId: string, chooseColor?: CardColor }) => {
+    this.onMessage("playCard", (client: Client, data: { cardId: string, chooseColor?: CardColor }) => {
       this.handlePlayCard(client, data.cardId, data.chooseColor);
     });
 
-    (this as any).onMessage("drawCard", (client: Client) => {
+    this.onMessage("drawCard", (client: Client) => {
       this.handleDrawCard(client);
     });
 
-    (this as any).onMessage("sayUno", (client: Client) => {
+    this.onMessage("sayUno", (client: Client) => {
       const player = this.state.players.get(client.sessionId);
       if (player && player.hand.length <= 2) {
          player.hasSaidUno = true;
-         (this as any).broadcast("notification", `${player.name} said UNO!`);
+         this.broadcast("notification", `${player.name} said UNO!`);
       }
     });
   }
 
   onJoin(client: Client, options: any) {
-    console.log(`👤 Client joined: ${client.sessionId}`);
+    console.log(`👤 [UNORoom] Client joining: ${client.sessionId}`);
     try {
       const player = new Player();
       player.id = client.sessionId;
       player.sessionId = client.sessionId;
       player.name = options.name || "Guest";
+      
       this.state.players.set(client.sessionId, player);
       this.playerIndexes.push(client.sessionId);
+      
+      console.log(`✅ [UNORoom] Client ${client.sessionId} added to state. Total players: ${this.state.players.size}`);
     } catch (e) {
       console.error("❌ Error in onJoin:", e);
+      client.leave(4000); // Close with error code if join fails
     }
   }
 
   async onLeave(client: Client, consented: boolean) {
     console.log(`👋 Client left: ${client.sessionId}, Consented: ${consented}`);
-    const player = this.state.players.get(client.sessionId);
-    if (player) {
-      player.isConnected = false;
-      if (this.state.status === GameStatus.LOBBY) {
-        this.state.players.delete(client.sessionId);
-        this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
-      } else {
-        // Game in progress - wait for reconnect
-        try {
-          if (consented) throw new Error("Consented leave");
-          await (this as any).allowReconnection(client, 30);
-          player.isConnected = true;
-          console.log(`♻️ Client reconnected: ${client.sessionId}`);
-        } catch (e) {
+    try {
+      const player = this.state.players.get(client.sessionId);
+      if (player) {
+        player.isConnected = false;
+        if (this.state.status === GameStatus.LOBBY) {
           this.state.players.delete(client.sessionId);
           this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
-          (this as any).broadcast("notification", `${player.name} left the game.`);
-          if (this.state.players.size < 2) {
-             this.state.status = GameStatus.LOBBY; // Reset if too few players
-             (this as any).broadcast("notification", "Game reset due to lack of players.");
-          }
+        } else {
+          if (consented) throw new Error("Consented leave");
+          await this.allowReconnection(client, 30);
+          player.isConnected = true;
+          console.log(`♻️ Client reconnected: ${client.sessionId}`);
+        }
+      }
+    } catch (e) {
+      // Cleanup if reconnection failed
+      const player = this.state.players.get(client.sessionId);
+      if (player) {
+        this.state.players.delete(client.sessionId);
+        this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
+        this.broadcast("notification", `${player.name} left the game.`);
+        
+        if (this.state.players.size < 2 && this.state.status === GameStatus.PLAYING) {
+           this.state.status = GameStatus.LOBBY;
+           this.broadcast("notification", "Game reset due to lack of players.");
+           console.log("🔄 Game Reset to Lobby");
         }
       }
     }
   }
 
   startGame() {
+    console.log("🃏 Starting Game...");
     this.state.status = GameStatus.PLAYING;
+    
+    // Update metadata
+    this.setMetadata({
+        code: this.state.roomCode,
+        status: 'Playing'
+    });
+
     this.createDeck();
     this.shuffleDeck();
     
-    // Deal 7 cards
     this.playerIndexes.forEach(sessionId => {
       const player = this.state.players.get(sessionId);
       if (player) {
+        player.hand.clear(); // Ensure clear hand
         for (let i = 0; i < 7; i++) {
           this.moveCardFromDrawToHand(player);
         }
@@ -121,18 +155,17 @@ export class UNORoom extends Room<UNOState> {
       }
     });
 
-    // Flip first card
     const firstCard = this.state.drawPile.pop();
     if (firstCard) {
       this.state.discardPile.push(firstCard);
       this.updateCurrentState(firstCard);
-      // If first card is Wild, Color must be chosen? For simplicity, random valid color
       if (firstCard.color === 'black') {
         this.state.currentColor = ['red','blue','green','yellow'][Math.floor(Math.random()*4)];
       }
     }
 
     this.state.currentTurnPlayerId = this.playerIndexes[0];
+    console.log(`🏁 Game Started. Turn: ${this.state.currentTurnPlayerId}`);
   }
 
   handlePlayCard(client: Client, cardId: string, chooseColor?: CardColor) {
@@ -145,31 +178,25 @@ export class UNORoom extends Room<UNOState> {
     if (cardIndex === -1) return;
     const card = player.hand[cardIndex];
 
-    // Validation
     const isValid = this.isValidMove(card);
     if (!isValid) {
       client.send("error", "Invalid move");
       return;
     }
 
-    // Apply Move
     player.hand.splice(cardIndex, 1);
     this.state.discardPile.push(card);
     player.cardsRemaining = player.hand.length;
     
-    // Check UNO rule
     if (player.hand.length === 1 && !player.hasSaidUno) {
-        // In strict rules, penalty is applied if caught before next player.
-        // Here, we auto-flag "needs UNO" or let them click button. 
-        // For simplicity: reset flag.
         player.hasSaidUno = false;
     } else if (player.hand.length === 0) {
         this.state.winner = player.name;
         this.state.status = GameStatus.FINISHED;
+        console.log(`🏆 Winner: ${player.name}`);
         return;
     }
 
-    // Handle Effects
     if (card.color === 'black') {
       if (chooseColor) this.state.currentColor = chooseColor;
     } else {
@@ -205,7 +232,6 @@ export class UNORoom extends Room<UNOState> {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
 
-    // If there is a stack (from +2 or +4), player draws stack and loses turn
     if (this.state.drawStack > 0) {
        for(let i=0; i<this.state.drawStack; i++) this.moveCardFromDrawToHand(player);
        this.state.drawStack = 0;
@@ -213,23 +239,17 @@ export class UNORoom extends Room<UNOState> {
        return;
     }
 
-    // Standard draw
     const newCard = this.moveCardFromDrawToHand(player);
     
-    // If playable immediately, allow play (Optional rule, usually they can play if valid)
-    // For this implementation, we force pass after draw to simplify interaction flow, 
-    // OR we can let them play. Let's Auto-pass if not playable, stay if playable.
     if (newCard && !this.isValidMove(newCard)) {
        this.advanceTurn(false);
     } else {
-       // Player can play this card now. They stay current turn.
-       // Client side should highlight the new card.
        client.send("notification", "You drew a playable card!");
     }
   }
 
   isValidMove(card: Card): boolean {
-    if (card.color === 'black') return true; // Wilds always playable
+    if (card.color === 'black') return true;
     if (card.color === this.state.currentColor) return true;
     if (card.type === this.state.currentType) {
         if (card.type === 'number') return card.value === this.state.currentValue;
@@ -244,9 +264,8 @@ export class UNORoom extends Room<UNOState> {
      
      if (skip) nextIndex += this.state.direction;
 
-     // Wrap around
      if (nextIndex >= this.playerIndexes.length) nextIndex = nextIndex % this.playerIndexes.length;
-     if (nextIndex < 0) nextIndex = this.playerIndexes.length + (nextIndex % this.playerIndexes.length); // handle negative modulo
+     if (nextIndex < 0) nextIndex = this.playerIndexes.length + (nextIndex % this.playerIndexes.length);
 
      this.state.currentTurnPlayerId = this.playerIndexes[nextIndex];
   }
@@ -259,8 +278,7 @@ export class UNORoom extends Room<UNOState> {
 
   moveCardFromDrawToHand(player: Player): Card | null {
      if (this.state.drawPile.length === 0) {
-        // Reshuffle discard (except top)
-        if (this.state.discardPile.length <= 1) return null; // Safety
+        if (this.state.discardPile.length <= 1) return null;
         const top = this.state.discardPile.pop();
         const rest = [...this.state.discardPile];
         this.state.discardPile.clear();
@@ -272,7 +290,6 @@ export class UNORoom extends Room<UNOState> {
             [rest[i], rest[j]] = [rest[j], rest[i]];
         }
         rest.forEach(c => {
-             // Reset wild colors to black when reshuffling
              if(c.type === 'wild' || c.type === 'wild4') c.color = 'black';
              this.state.drawPile.push(c);
         });
@@ -292,21 +309,17 @@ export class UNORoom extends Room<UNOState> {
      const colors: CardColor[] = ['red', 'blue', 'green', 'yellow'];
      
      colors.forEach(color => {
-        // 0
         this.addCard(color, 'number', 0);
-        // 1-9 x2
         for(let i=1; i<=9; i++) {
            this.addCard(color, 'number', i);
            this.addCard(color, 'number', i);
         }
-        // Action cards x2
         ['skip', 'reverse', 'draw2'].forEach(type => {
             this.addCard(color, type as CardType);
             this.addCard(color, type as CardType);
         });
      });
 
-     // Wilds x4
      for(let i=0; i<4; i++) {
         this.addCard('black', 'wild');
         this.addCard('black', 'wild4');
@@ -323,7 +336,6 @@ export class UNORoom extends Room<UNOState> {
   }
 
   shuffleDeck() {
-      // Fisher-Yates inside Schema Array is tricky, convert to JS array then rebuild
       const cards = Array.from(this.state.drawPile);
       for (let i = cards.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -334,11 +346,11 @@ export class UNORoom extends Room<UNOState> {
   }
 
   generateRoomCode() {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Removed I, O to avoid confusion
     let code = '';
     for (let i = 0; i < 5; i++) {
       code += letters.charAt(Math.floor(Math.random() * letters.length));
     }
     return code;
-}
+  }
 }

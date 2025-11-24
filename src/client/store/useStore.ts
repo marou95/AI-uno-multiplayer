@@ -1,7 +1,19 @@
-/// <reference types="vite/client" />
 import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
+
+// Define types for Vite environment variables since vite/client might be missing
+declare global {
+  interface ImportMetaEnv {
+    readonly VITE_SERVER_URL: string;
+    readonly PROD: boolean;
+    readonly [key: string]: any;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
 
 const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 
@@ -67,10 +79,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   createRoom: async () => {
     const store = get();
-    if (store.isConnecting || store.room) {
-      console.log('⚠️ Already connecting or in room');
-      return;
-    }
+    if (store.isConnecting || store.room) return;
 
     try {
       set({ error: null, isConnecting: true });
@@ -82,19 +91,14 @@ export const useStore = create<StoreState>((set, get) => ({
       
       const room = await store.client.joinOrCreate("uno", { name: nickname }) as Colyseus.Room<UNOState>;
       
-      console.log("✅ Room Connected! Internal ID:", room.roomId);
-      console.log("⏳ Waiting for game state (Room Code)...");
-      
+      console.log("✅ Room Created:", room.roomId);
       store._setupRoom(room);
       set({ isConnecting: false });
       
     } catch (e: any) {
       console.error("❌ Create error:", e);
-      
       let errorMessage = "Failed to create room";
-      if (e.message?.includes('1006')) errorMessage = "Connection Closed (1006) - Try again";
-      else if (e.message?.includes('CORS')) errorMessage = "CORS error - Check server";
-      else if (e.message?.includes('fetch')) errorMessage = "Cannot reach server";
+      if (e.message?.includes('4000')) errorMessage = "Server error (4000) - Try again";
       else if (e.message) errorMessage = e.message;
       
       set({ error: errorMessage, isConnecting: false });
@@ -104,10 +108,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   joinRoom: async (code) => {
     const store = get();
-    if (store.isConnecting || store.room) {
-      console.log('⚠️ Already connecting or in room');
-      return;
-    }
+    if (store.isConnecting || store.room) return;
 
     try {
       set({ error: null, isConnecting: true });
@@ -120,23 +121,15 @@ export const useStore = create<StoreState>((set, get) => ({
 
       console.log(`🎮 Joining room ${roomCode}...`);
       
-      // We pass 'code' in options so the server can filter room candidates
       const room = await store.client.join("uno", { name: nickname, code: roomCode }) as Colyseus.Room<UNOState>;
       
-      console.log("✅ Joined room (Internal ID):", room.roomId);
-      
+      console.log("✅ Joined room:", room.roomId);
       store._setupRoom(room);
       set({ isConnecting: false });
       
     } catch (e: any) {
       console.error("❌ Join error:", e);
-      
-      let errorMessage = "Could not join room";
-      if (e.message?.includes('not found')) errorMessage = "Room not found";
-      else if (e.message) errorMessage = e.message;
-      
-      set({ error: errorMessage, isConnecting: false });
-      get().addNotification("❌ " + errorMessage);
+      set({ error: e.message || "Could not join room", isConnecting: false });
     }
   },
 
@@ -159,27 +152,21 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     room.onStateChange((state) => {
-      // Debug log every few updates or on status change
-      if (get().gameState?.status !== state.status) {
-         console.log('📊 State status update:', state.status);
-      }
       set({ gameState: state as any });
     });
 
     room.onMessage("notification", (msg) => get().addNotification(msg));
     room.onMessage("error", (msg) => get().addNotification("⚠️ " + msg));
     
-    room.onError((code, message) => {
-      console.error('❌ Room error:', code, message);
-      get().addNotification("❌ Error: " + message);
-    });
-
     room.onLeave((code) => {
       console.log('👋 Connection Closed. Code:', code);
-      if (code !== 1000) {
-        get().addNotification("⚠️ Disconnected (" + code + ")");
-        // If we disconnect abnormally, clear the state so UI returns to home
+      if (code === 4000) {
+          // 4000 is a generic "Bad Data" or "Logic Error" close from server
+          set({ room: null, gameState: null, playerId: null, isConnecting: false, error: "Server Error (4000) - Please Refresh" });
+          get().addNotification("❌ Connection Lost (4000)");
+      } else if (code !== 1000) {
         set({ room: null, gameState: null, playerId: null, isConnecting: false, error: `Disconnected (${code})` });
+        get().addNotification(`⚠️ Disconnected (${code})`);
       } else {
         set({ room: null, gameState: null, playerId: null, isConnecting: false });
       }
