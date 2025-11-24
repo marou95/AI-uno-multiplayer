@@ -24,7 +24,7 @@ app.options('*', cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  console.log('✅ Health check from:', req.headers.origin || 'unknown');
+  console.log('✅ Health check');
   res.send("UNO Server Running! 🚀");
 });
 
@@ -32,8 +32,7 @@ app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
-    port: port,
-    cors: "enabled"
+    port: port
   });
 });
 
@@ -42,6 +41,8 @@ const server = http.createServer(app);
 const gameServer = new Server({
   transport: new WebSocketTransport({
     server: server,
+    pingInterval: 6000,
+    pingMaxRetries: 4,
   }),
 });
 
@@ -50,10 +51,9 @@ gameServer.define("uno", UNORoom).enableRealtimeListing();
 
 gameServer.listen(port);
 
-console.log('✅ UNO Server is ready!');
-console.log(`🌐 Listening on port: ${port}`);
+console.log('✅ Server ready on port:', port);
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   console.error('❌ Unhandled Rejection:', reason);
 });
 

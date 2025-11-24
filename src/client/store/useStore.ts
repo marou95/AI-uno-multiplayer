@@ -148,6 +148,7 @@ export const useStore = create<StoreState>((set, get) => ({
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
     console.log('🔧 Setup room:', room.roomId);
     set({ room, playerId: room.sessionId, error: null });
+    
 
     room.onStateChange.once((state) => {
       console.log('📊 Initial state:', state.status, state.roomCode);
