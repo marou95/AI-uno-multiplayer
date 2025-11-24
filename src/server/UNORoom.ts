@@ -1,17 +1,22 @@
+
 import { Room, Client } from "colyseus";
+import { ArraySchema } from "@colyseus/schema";
 import { UNOState, Player, Card } from "./schema/UNOState";
 import { CardColor, CardType, GameStatus } from "../shared/types";
-import { v4 as uuidv4 } from 'uuid';
+
+// Helper to generate IDs without external dependencies
+const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export class UNORoom extends Room<UNOState> {
   maxClients = 6;
-  playerIndexes: string[] = []; // Initialize here to avoid undefined access
+  playerIndexes: string[] = []; 
 
-  onCreate(options: any) {
+  async onCreate(options: any) {
     console.log("🏠 [UNORoom] Creating new room...");
     
-    // 1. Initialize State immediately
+    // 1. Initialize State & Arrays explicitly
     this.setState(new UNOState());
+    this.playerIndexes = []; 
     
     // 2. Generate and Set Room Code
     const roomCode = this.generateRoomCode();
@@ -19,14 +24,16 @@ export class UNORoom extends Room<UNOState> {
     console.log(`✅ Room Created! ID: ${this.roomId} | Code: ${roomCode}`);
 
     // 3. Set Metadata for Matchmaking (Crucial for filterBy(['roomCode']))
-    this.setMetadata({
-      roomCode: roomCode,
-      status: 'Lobby'
-    }).then(() => {
-       console.log(`📦 Metadata set for room ${roomCode}`);
-    }).catch(err => {
-       console.error("❌ Failed to set metadata:", err);
-    });
+    // We await this to ensure matchmaking is ready before we consider creation 'done'
+    try {
+      await this.setMetadata({
+        roomCode: roomCode,
+        status: 'Lobby'
+      });
+      console.log(`📦 Metadata set for room ${roomCode}`);
+    } catch (err) {
+      console.error("❌ Failed to set metadata:", err);
+    }
 
     // 4. Setup Handlers
     this.setPatchRate(50); // 20fps
@@ -34,27 +41,35 @@ export class UNORoom extends Room<UNOState> {
   }
 
   onJoin(client: Client, options: any) {
-    console.log(`👤 [UNORoom] Client joining: ${client.sessionId}`);
-    
-    // Validations
-    if (this.state.status === GameStatus.PLAYING) {
-        // TODO: Handle reconnection logic specifically if needed, 
-        // for now we prevent new joins during game unless it's a reconnect (handled by onLeave/reconnection token usually)
-        // For simplicity in this demo, we allow join but they will be spectators or waiting.
-        console.log(`⚠️ Client ${client.sessionId} joined active game.`);
+    try {
+      console.log(`👤 [UNORoom] Client joining: ${client.sessionId}`);
+      
+      // Validations
+      if (this.state.status !== GameStatus.LOBBY) {
+         console.log(`⚠️ Client ${client.sessionId} attempting to join active game.`);
+         // Optional: Allow reconnect logic here if needed
+      }
+
+      const name = options?.name || "Guest";
+
+      const player = new Player();
+      player.id = client.sessionId;
+      player.sessionId = client.sessionId;
+      player.name = name;
+      player.hand = new ArraySchema<Card>(); // Ensure hand is initialized
+      
+      this.state.players.set(client.sessionId, player);
+      
+      // Defensive push
+      if (!this.playerIndexes) this.playerIndexes = [];
+      this.playerIndexes.push(client.sessionId);
+      
+      console.log(`✅ Client ${client.sessionId} (${name}) joined successfully.`);
+    } catch (e) {
+      console.error("❌ CRITICAL ERROR IN ONJOIN:", e);
+      // Close connection with a specific application error code instead of crashing the server
+      client.leave(4001); 
     }
-
-    const name = options?.name || "Guest";
-
-    const player = new Player();
-    player.id = client.sessionId;
-    player.sessionId = client.sessionId;
-    player.name = name;
-    
-    this.state.players.set(client.sessionId, player);
-    this.playerIndexes.push(client.sessionId);
-    
-    console.log(`✅ Client ${client.sessionId} (${name}) joined successfully.`);
   }
 
   setupMessageHandlers() {
@@ -62,7 +77,6 @@ export class UNORoom extends Room<UNOState> {
       const player = this.state.players.get(client.sessionId);
       if (player) {
         player.name = data.name || "Guest";
-        // Also update metadata if host? No need for now.
       }
     });
 
@@ -76,7 +90,7 @@ export class UNORoom extends Room<UNOState> {
 
     this.onMessage("startGame", (client: Client) => {
       if (this.state.status !== GameStatus.LOBBY) return;
-      // Simple host check: Host is usually the first player in the map or indexes
+      // Host is the first player in the indexes
       const isHost = this.playerIndexes[0] === client.sessionId;
       
       if (!isHost) return;
@@ -122,17 +136,21 @@ export class UNORoom extends Room<UNOState> {
 
     } catch (e) {
       // Handle permanent leave
-      this.state.players.delete(client.sessionId);
-      this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
+      if (this.state.players.has(client.sessionId)) {
+        this.state.players.delete(client.sessionId);
+      }
       
-      if (this.state.status === GameStatus.LOBBY) {
-         // Just remove from lobby
-      } else {
+      if (this.playerIndexes) {
+        this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
+      }
+      
+      if (this.state.status !== GameStatus.LOBBY) {
          this.broadcast("notification", `${player.name} left the game.`);
          // If too few players, reset
          if (this.state.players.size < 2) {
              this.state.status = GameStatus.LOBBY;
              this.broadcast("notification", "Game reset (too few players).");
+             this.setMetadata({ status: 'Lobby' }).catch(console.error);
              console.log("🔄 Game Reset to Lobby");
          }
       }
@@ -142,7 +160,7 @@ export class UNORoom extends Room<UNOState> {
   startGame() {
     console.log("🃏 Starting Game...");
     this.state.status = GameStatus.PLAYING;
-    this.setMetadata({ status: 'Playing' });
+    this.setMetadata({ status: 'Playing' }).catch(console.error);
 
     this.createDeck();
     this.shuffleDeck();
@@ -266,6 +284,7 @@ export class UNORoom extends Room<UNOState> {
      
      if (skip) nextIndex += this.state.direction;
 
+     // Modulo arithmetic for circular array
      if (nextIndex >= this.playerIndexes.length) nextIndex = nextIndex % this.playerIndexes.length;
      if (nextIndex < 0) nextIndex = this.playerIndexes.length + (nextIndex % this.playerIndexes.length);
 
@@ -330,7 +349,7 @@ export class UNORoom extends Room<UNOState> {
 
   addCard(color: CardColor, type: CardType, value: number = -1) {
      const card = new Card();
-     card.id = uuidv4();
+     card.id = generateId();
      card.color = color;
      card.type = type;
      card.value = value;

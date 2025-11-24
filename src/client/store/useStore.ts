@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
@@ -80,7 +81,7 @@ export const useStore = create<StoreState>((set, get) => ({
       console.log(`🎮 Creating NEW room on ${SERVER_URL}...`);
       
       // Explicitly CREATE a room. 
-      // Note: We do not pass roomCode here, server generates it.
+      // Do NOT pass roomCode here. This ensures filterBy doesn't block creation.
       const room = await store.client.create("uno", { name: nickname }) as Colyseus.Room<UNOState>;
       
       console.log("✅ Room Created:", room.roomId);
@@ -110,7 +111,7 @@ export const useStore = create<StoreState>((set, get) => ({
       console.log(`🎮 Joining room with code ${roomCode}...`);
       
       // Explicitly JOIN with roomCode option. 
-      // Server must have .filterBy(['roomCode']) for this to find the specific room.
+      // Server 'filterBy(['roomCode'])' will match this.
       const room = await store.client.join("uno", { name: nickname, roomCode: roomCode }) as Colyseus.Room<UNOState>;
       
       console.log("✅ Joined room:", room.roomId);

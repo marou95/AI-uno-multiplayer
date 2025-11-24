@@ -1,3 +1,4 @@
+
 import express from "express";
 import http from "http";
 import { Server } from "colyseus";
@@ -21,7 +22,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
 
-app.use(express.json() as express.RequestHandler);
+// Cast to any to avoid TS overload mismatch, common with express types mismatch
+app.use(express.json() as any);
 
 app.use('/matchmake/*', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || "*");
