@@ -14,20 +14,18 @@ console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
 
 app.set('trust proxy', 1);
 
+// Standard CORS config - robust for Railway/Vercel
 app.use(cors({
-  origin: true,
+  origin: true, // Dynamically set Access-Control-Allow-Origin to the request origin
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
 
+// Cast to any to avoid TypeScript overload error with Express types
 app.use(express.json() as any);
 
-app.use('/matchmake/*', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || "*");
-  res.header('Access-Control-Allow-Credentials', 'true');
-  next();
-});
+// REMOVED: Manual /matchmake middleware which caused 405 errors by interfering with Colyseus routing.
 
 app.get("/", (req, res) => {
   res.send("UNO Server Running! 🚀");
@@ -42,8 +40,7 @@ const server = http.createServer(app);
 const gameServer = new Server({
   transport: new WebSocketTransport({
     server: server,
-    // Disable ping interval to prevent premature disconnects on some proxies
-    // The client can handle its own keep-alive if needed, or we rely on TCP
+    // Disable ping interval to prevent premature disconnects on proxies (Railway/Vercel)
     pingInterval: 0, 
     verifyClient: (info, next) => {
       // Allow all connections
@@ -52,7 +49,10 @@ const gameServer = new Server({
   }),
 });
 
-gameServer.define("uno", UNORoom).enableRealtimeListing();
+// Enable filterBy logic for strict Room Code matching
+gameServer.define("uno", UNORoom)
+  .filterBy(['roomCode'])
+  .enableRealtimeListing();
 
 gameServer.listen(port);
 console.log(`✅ Server ready on port ${port}`);

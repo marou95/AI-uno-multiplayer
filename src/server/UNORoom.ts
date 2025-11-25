@@ -9,94 +9,104 @@ export class UNORoom extends Room<UNOState> {
   unoPenaltyTimeout: Delayed | null = null;
 
   async onCreate(options: any) {
-    // 1. Initialize State immediately
-    this.setState(new UNOState());
-    this.playerIndexes = []; // Defensively initialize
-    
-    // 2. Generate Code
-    const code = this.generateRoomCode();
-    this.state.roomCode = code;
-    
-    // 3. Set Metadata (Awaitable) for Matchmaking
-    await this.setMetadata({ roomCode: code });
-    
-    console.log(`✅ Room created: ${this.roomId} | Code: ${code}`);
-
-    this.onMessage("setInfo", (client: Client, data: any) => {
-      const player = this.state.players.get(client.sessionId);
-      if (player) player.name = data.name || "Guest";
-    });
-
-    this.onMessage("toggleReady", (client: Client) => {
-      if (this.state.status !== GameStatus.LOBBY) return;
-      const player = this.state.players.get(client.sessionId);
-      if (player) player.isReady = !player.isReady;
-    });
-
-    this.onMessage("startGame", (client: Client) => {
-      if (this.state.status !== GameStatus.LOBBY) return;
-      const readyCount = Array.from(this.state.players.values()).filter((p: Player) => p.isReady).length;
-      if (readyCount >= 2 && readyCount === this.state.players.size) {
-        this.startGame();
-      }
-    });
-
-    this.onMessage("playCard", (client: Client, data: { cardId: string, chooseColor?: CardColor }) => {
-      this.handlePlayCard(client, data.cardId, data.chooseColor);
-    });
-
-    this.onMessage("drawCard", (client: Client) => {
-      this.handleDrawCard(client);
-    });
-
-    this.onMessage("sayUno", (client: Client) => {
-      const player = this.state.players.get(client.sessionId);
-      if (player) {
-         // Case 1: Pre-emptive or standard UNO call
-         if (player.hand.length <= 2) {
-            player.hasSaidUno = true;
-            this.broadcast("notification", `${player.name} said UNO!`);
-         }
-
-         // Case 2: Saving themselves during the penalty window
-         if (this.state.pendingUnoPenaltyPlayerId === client.sessionId) {
-            this.state.pendingUnoPenaltyPlayerId = "";
-            if (this.unoPenaltyTimeout) {
-                this.unoPenaltyTimeout.clear();
-                this.unoPenaltyTimeout = null;
-            }
-            this.broadcast("notification", `${player.name} saved themselves from penalty!`);
-         }
-      }
-    });
-
-    this.onMessage("catchUno", (client: Client) => {
-        const culpritId = this.state.pendingUnoPenaltyPlayerId;
-        if (!culpritId) return; // Too late or not valid
+    try {
+        console.log(`🏗️ Creating room... ID: ${this.roomId}`);
         
-        // You cannot catch yourself
-        if (culpritId === client.sessionId) return;
+        // 1. Initialize State immediately
+        this.setState(new UNOState());
+        this.playerIndexes = []; 
+        
+        // 2. Generate Code
+        const code = this.generateRoomCode();
+        this.state.roomCode = code;
+        
+        // 3. Set Metadata (Awaitable) for Matchmaking
+        // This is CRITICAL for .filterBy(['roomCode']) to work
+        await this.setMetadata({ roomCode: code });
+        
+        console.log(`✅ Room ready: ${this.roomId} | Code: ${code}`);
 
-        const culprit = this.state.players.get(culpritId);
-        const catcher = this.state.players.get(client.sessionId);
+        this.onMessage("setInfo", (client: Client, data: any) => {
+          const player = this.state.players.get(client.sessionId);
+          if (player) player.name = data.name || "Guest";
+        });
 
-        if (culprit && catcher) {
-            // Apply Penalty
-            this.broadcast("notification", `🚨 ${catcher.name} CAUGHT ${culprit.name}! (+2 cards)`);
+        this.onMessage("toggleReady", (client: Client) => {
+          if (this.state.status !== GameStatus.LOBBY) return;
+          const player = this.state.players.get(client.sessionId);
+          if (player) player.isReady = !player.isReady;
+        });
+
+        this.onMessage("startGame", (client: Client) => {
+          if (this.state.status !== GameStatus.LOBBY) return;
+          // In dev, 1 player is enough for testing, but technically >= 2
+          const readyCount = Array.from(this.state.players.values()).filter((p: Player) => p.isReady).length;
+          // Allow 1 player start for debugging if needed, but keeping rule >= 2
+          if (readyCount >= 2 && readyCount === this.state.players.size) {
+            this.startGame();
+          }
+        });
+
+        this.onMessage("playCard", (client: Client, data: { cardId: string, chooseColor?: CardColor }) => {
+          this.handlePlayCard(client, data.cardId, data.chooseColor);
+        });
+
+        this.onMessage("drawCard", (client: Client) => {
+          this.handleDrawCard(client);
+        });
+
+        this.onMessage("sayUno", (client: Client) => {
+          const player = this.state.players.get(client.sessionId);
+          if (player) {
+             // Case 1: Pre-emptive or standard UNO call
+             if (player.hand.length <= 2) {
+                player.hasSaidUno = true;
+                this.broadcast("notification", `${player.name} said UNO!`);
+             }
+
+             // Case 2: Saving themselves during the penalty window
+             if (this.state.pendingUnoPenaltyPlayerId === client.sessionId) {
+                this.state.pendingUnoPenaltyPlayerId = "";
+                if (this.unoPenaltyTimeout) {
+                    this.unoPenaltyTimeout.clear();
+                    this.unoPenaltyTimeout = null;
+                }
+                this.broadcast("notification", `${player.name} saved themselves from penalty!`);
+             }
+          }
+        });
+
+        this.onMessage("catchUno", (client: Client) => {
+            const culpritId = this.state.pendingUnoPenaltyPlayerId;
+            if (!culpritId) return; // Too late or not valid
             
-            // Draw 2 cards
-            this.moveCardFromDrawToHand(culprit);
-            this.moveCardFromDrawToHand(culprit);
-            culprit.hasSaidUno = false; // Reset status
+            // You cannot catch yourself
+            if (culpritId === client.sessionId) return;
 
-            // Clear state
-            this.state.pendingUnoPenaltyPlayerId = "";
-            if (this.unoPenaltyTimeout) {
-                this.unoPenaltyTimeout.clear();
-                this.unoPenaltyTimeout = null;
+            const culprit = this.state.players.get(culpritId);
+            const catcher = this.state.players.get(client.sessionId);
+
+            if (culprit && catcher) {
+                // Apply Penalty
+                this.broadcast("notification", `🚨 ${catcher.name} CAUGHT ${culprit.name}! (+2 cards)`);
+                
+                // Draw 2 cards
+                this.moveCardFromDrawToHand(culprit);
+                this.moveCardFromDrawToHand(culprit);
+                culprit.hasSaidUno = false; // Reset status
+
+                // Clear state
+                this.state.pendingUnoPenaltyPlayerId = "";
+                if (this.unoPenaltyTimeout) {
+                    this.unoPenaltyTimeout.clear();
+                    this.unoPenaltyTimeout = null;
+                }
             }
-        }
-    });
+        });
+    } catch (e) {
+        console.error("❌ CRITICAL ERROR in onCreate:", e);
+        this.disconnect();
+    }
   }
 
   onJoin(client: Client, options: any) {
@@ -120,9 +130,9 @@ export class UNORoom extends Room<UNOState> {
     } catch (e) {
         console.error("❌ Error in onJoin:", e);
         client.send("error", "Failed to join room properly.");
-        client.leave(4000);
+        // We DO NOT throw/disconnect violently here to avoid 4000/1006 on client
     }
-}
+  }
 
   async onLeave(client: Client, consented: boolean) {
     const player = this.state.players.get(client.sessionId);
@@ -199,7 +209,6 @@ export class UNORoom extends Room<UNOState> {
     player.cardsRemaining = player.hand.length;
     
     // --- UNO PENALTY LOGIC ---
-    // If player has 1 card left AND has not said UNO
     if (player.hand.length === 1 && !player.hasSaidUno) {
         // Mark them as vulnerable
         this.state.pendingUnoPenaltyPlayerId = player.sessionId;
@@ -212,8 +221,6 @@ export class UNORoom extends Room<UNOState> {
             this.unoPenaltyTimeout = null;
         }, 3000);
     } else {
-        // If they played and have > 1 cards, or 0 cards, clear any previous vulnerability
-        // (Though strictly, vulnerability is for the *previous* turn, but in fast play we reset)
         if (this.state.pendingUnoPenaltyPlayerId === player.sessionId) {
             this.state.pendingUnoPenaltyPlayerId = "";
             if (this.unoPenaltyTimeout) this.unoPenaltyTimeout.clear();
@@ -268,19 +275,19 @@ export class UNORoom extends Room<UNOState> {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
 
-    // Penalty Drawing Logic (Stacking)
+    // Penalty Drawing Logic (Stacking resolution)
     if (this.state.drawStack > 0) {
        for(let i=0; i<this.state.drawStack; i++) this.moveCardFromDrawToHand(player);
        this.broadcast("notification", `${player.name} drew ${this.state.drawStack} cards!`);
        this.state.drawStack = 0;
-       player.hasSaidUno = false; // Reset UNO status on forced draw
+       player.hasSaidUno = false; 
        this.advanceTurn(false);
        return;
     }
 
     // Normal Draw
     const newCard = this.moveCardFromDrawToHand(player);
-    player.hasSaidUno = false; // Reset UNO status on draw
+    player.hasSaidUno = false; 
     
     if (newCard && !this.isValidMove(newCard)) {
        // Auto pass if drawn card isn't playable
@@ -306,7 +313,6 @@ export class UNORoom extends Room<UNOState> {
      
      if (skip) nextIndex += this.state.direction;
 
-     // Wrap around logic
      if (nextIndex >= this.playerIndexes.length) nextIndex = nextIndex % this.playerIndexes.length;
      if (nextIndex < 0) nextIndex = this.playerIndexes.length + (nextIndex % this.playerIndexes.length);
 
@@ -315,32 +321,21 @@ export class UNORoom extends Room<UNOState> {
 
      this.state.currentTurnPlayerId = nextPlayerId;
 
-     // --- AUTO-PENALTY CHECK (+2 / +4) ---
-     // If the previous player played a draw card (drawStack > 0),
-     // Check if nextPlayer can stack (only for +2). 
-     // +4 is usually not stackable in standard rules, but if so, check card type.
-     // Standard: +2 stacks on +2. +4 makes you draw immediately (no stacking usually, or varies).
-     // Implemented logic: Check if next player has a +2 to stack.
-     
+     // --- AUTO-PENALTY CHECK ---
+     // If there is a pending draw stack, check if next player can counter it.
      if (this.state.drawStack > 0 && nextPlayer) {
          // Logic: Can they stack?
-         // Only stack +2 on +2
          const incomingIsDraw2 = (this.state.currentType === 'draw2');
+         // We allow stacking only if it's Draw2 on Draw2.
+         // Wild+4 usually forces draw (unless house rules say otherwise, here we enforce draw).
+         
          const hasCounter = nextPlayer.hand.some(c => c.type === 'draw2');
 
-         if (incomingIsDraw2) {
-             if (hasCounter) {
-                 // They have a +2, so we pause and let them play it (or draw)
-                 // Do not auto-draw yet.
-                 this.broadcast("notification", `${nextPlayer.name} can stack a +2!`);
-             } else {
-                 // They cannot stack, AUTO DRAW immediately
-                 this.clock.setTimeout(() => {
-                    this.handleAutoDrawPenalty(nextPlayer);
-                 }, 1000); // Small delay for visual clarity
-             }
+         if (incomingIsDraw2 && hasCounter) {
+             // They have a +2, so we pause and let them play it
+             this.broadcast("notification", `${nextPlayer.name} can stack a +2!`);
          } else {
-             // It's a Wild +4. Usually not stackable. Auto draw immediately.
+             // They cannot stack, AUTO DRAW immediately after short delay
              this.clock.setTimeout(() => {
                 this.handleAutoDrawPenalty(nextPlayer);
              }, 1000);
@@ -355,7 +350,6 @@ export class UNORoom extends Room<UNOState> {
           this.broadcast("notification", `${player.name} forced to draw ${count} cards!`);
           this.state.drawStack = 0;
           player.hasSaidUno = false;
-          
           // After penalty draw, turn passes
           this.advanceTurn(false);
       }
@@ -418,8 +412,6 @@ export class UNORoom extends Room<UNOState> {
 
   addCard(color: CardColor, type: CardType, value: number = -1) {
      const card = new Card();
-     // Simple ID generation without external deps for cards if needed, 
-     // but since we removed uuid import, we use a simple random string
      card.id = Math.random().toString(36).substr(2, 9);
      card.color = color;
      card.type = type;

@@ -82,8 +82,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
       console.log(`🎮 Creating NEW room on ${SERVER_URL}...`);
       
-      // CRITICAL CHANGE: Use .create() instead of .joinOrCreate()
-      // This forces the server to instantiate a fresh room every time.
+      // CRITICAL: Use .create() forcing a new room instance
       const room = await store.client.create("uno", { name: nickname }) as Colyseus.Room<UNOState>;
       
       console.log("✅ Room Created:", room.roomId);
@@ -93,8 +92,15 @@ export const useStore = create<StoreState>((set, get) => ({
     } catch (e: any) {
       console.error("❌ Create error:", e);
       let errorMessage = "Failed to create room";
-      if (e.message?.includes('4000')) errorMessage = "Server error (4000) - Try again";
-      else if (e.message) errorMessage = e.message;
+      
+      // Handle HTTP errors (405, 500, etc.)
+      if (e.message && (e.message.includes('405') || e.code === 405)) {
+          errorMessage = "Server configuration error (405). Please retry.";
+      } else if (e.message?.includes('4000')) {
+          errorMessage = "Server error (4000) - Try again";
+      } else if (e.message) {
+          errorMessage = e.message;
+      }
       
       set({ error: errorMessage, isConnecting: false });
       get().addNotification("❌ " + errorMessage);
@@ -116,8 +122,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
       console.log(`🎮 Joining room ${roomCode}...`);
       
-      // CRITICAL CHANGE: The option key MUST be 'roomCode' to match 
-      // the server's .filterBy(['roomCode'])
+      // CRITICAL: .join() with roomCode filter strictly
       const room = await store.client.join("uno", { name: nickname, roomCode: roomCode }) as Colyseus.Room<UNOState>;
       
       console.log("✅ Joined room:", room.roomId);
