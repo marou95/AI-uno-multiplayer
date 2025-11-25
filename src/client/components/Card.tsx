@@ -1,8 +1,10 @@
+// src/client/components/Card.tsx
+
 import React from 'react';
 import { Card as CardSchema } from '../../server/schema/UNOState';
 import clsx from 'clsx';
 import { Ban, RefreshCcw, Layers } from 'lucide-react';
-import { playSound } from '../utils/sounds'; // <--- 1. Import du gestionnaire de sons
+import { playSound } from '../utils/sounds'; // Import Sound
 
 interface CardProps {
   card: CardSchema;
@@ -32,7 +34,7 @@ export const Card: React.FC<CardProps> = ({ card, playable, onClick, className, 
   const isNumber = card.type === 'number';
   const colorClass = cardColors[card.color] || 'bg-slate-700';
 
-  // Icône centrale selon le type
+  // Icône centrale
   const renderContent = () => {
     if (isNumber) return <span className="text-6xl font-black italic shadow-black drop-shadow-md">{card.value}</span>;
     if (card.type === 'skip') return <Ban size={48} className="drop-shadow-md" />;
@@ -43,7 +45,7 @@ export const Card: React.FC<CardProps> = ({ card, playable, onClick, className, 
     return null;
   };
 
-  // Petit symbole dans les coins
+  // Coins
   const renderCorner = () => {
      if (isNumber) return card.value;
      if (card.type === 'skip') return <Ban size={16} />;
@@ -57,7 +59,7 @@ export const Card: React.FC<CardProps> = ({ card, playable, onClick, className, 
   return (
     <div 
       onClick={playable ? onClick : undefined}
-      onMouseEnter={() => playable && playSound('hover')} // <--- 2. Son "pop" uniquement si la carte est jouable ou interactive
+      onMouseEnter={() => playable && playSound('hover')} // AJOUT DU SON ICI
       className={clsx(
         "w-24 h-36 md:w-32 md:h-48 rounded-xl relative select-none transition-all duration-200 shadow-xl border-4",
         colorClass,
@@ -67,11 +69,11 @@ export const Card: React.FC<CardProps> = ({ card, playable, onClick, className, 
       )}
       style={style}
     >
-      {/* Design intérieur de la carte (Ellipse blanche) */}
+      {/* Design Intérieur */}
       <div className="absolute inset-2 border-2 border-white/20 rounded-lg flex items-center justify-center overflow-hidden">
          <div className="absolute inset-0 bg-gradient-to-br from-black/0 to-black/20" />
          
-         {/* Ovale central blanc */}
+         {/* Ovale */}
          <div className="w-full h-[80%] bg-white transform -skew-x-12 flex items-center justify-center text-slate-900 shadow-inner relative z-0">
              <div className={clsx("transform skew-x-12", isNumber ? textColors[card.color] : "text-slate-900")}>
                 {renderContent()}
@@ -87,7 +89,7 @@ export const Card: React.FC<CardProps> = ({ card, playable, onClick, className, 
          </div>
       </div>
 
-      {/* Overlay "Non jouable" (Optionnel : assombrit si ce n'est pas votre tour) */}
+      {/* Overlay Non jouable */}
       {!playable && onClick && (
         <div className="absolute inset-0 bg-black/10 rounded-xl" />
       )}

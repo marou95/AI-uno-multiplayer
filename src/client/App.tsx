@@ -1,17 +1,19 @@
+// src/client/App.tsx
+
 import React from 'react';
 import { Lobby } from './screens/Lobby';
 import { GameBoard } from './screens/GameBoard';
 import { useStore } from './store/useStore';
-import { SoundToggle } from './components/SoundToggle'; // Import
+import { SoundToggle } from './components/SoundToggle';
 
 const App = () => {
   const { room, gameState, error, notifications } = useStore();
 
-  // Écran de chargement initial ou connexion
+  // Écran de chargement initial ou connexion (Pas de room active)
   if (!room) {
     return (
       <>
-        <SoundToggle /> {/* Ajout du bouton */}
+        <SoundToggle />
         <Lobby />
         {/* Notifications Overlay */}
         <div className="fixed top-20 right-4 flex flex-col gap-2 z-[100] pointer-events-none">
@@ -25,10 +27,10 @@ const App = () => {
     );
   }
 
-  // En jeu (ou Lobby d'attente colyseus)
+  // En jeu (ou Lobby d'attente colyseus une fois connecté)
   return (
     <>
-      <SoundToggle /> {/* Ajout du bouton */}
+      <SoundToggle />
       
       {/* Affichage des notifications */}
       <div className="fixed top-20 right-4 flex flex-col gap-2 z-[100] pointer-events-none">
@@ -43,12 +45,13 @@ const App = () => {
         <GameBoard />
       ) : (
         <div className="w-full h-screen bg-green-800 flex flex-col items-center justify-center text-white p-4">
-             {/* ... Votre UI d'attente existante (Ready...) ... */}
+             {/* UI d'attente (Lobby Room) */}
              <div className="text-center">
                 <h1 className="text-4xl font-black mb-4 animate-bounce">LOBBY</h1>
                 <div className="bg-black/30 p-8 rounded-xl backdrop-blur-sm">
-                    <p className="mb-4 text-xl">Code: <span className="font-mono bg-white text-black px-2 py-1 rounded">{room.id}</span></p>
-                    <p className="mb-8 opacity-75">Waiting for player...</p>
+                    {/* CORRECTION ICI : room.roomId au lieu de room.id */}
+                    <p className="mb-4 text-xl">Code: <span className="font-mono bg-white text-black px-2 py-1 rounded select-all">{room.roomId}</span></p>
+                    <p className="mb-8 opacity-75">En attente de joueurs...</p>
                     
                     <button onClick={() => useStore.getState().toggleReady()} className="bg-yellow-400 text-black font-bold px-8 py-3 rounded-full text-xl hover:scale-105 transition">
                         {gameState?.players.get(room.sessionId)?.isReady ? "PRÊT !" : "CLIQUER POUR ÊTRE PRÊT"}
@@ -62,7 +65,6 @@ const App = () => {
                         ))}
                     </div>
 
-                    {/* Ajout bouton Start pour l'host si besoin, sinon géré auto */}
                      <button onClick={() => useStore.getState().startGame()} className="mt-8 bg-white/10 hover:bg-white/20 text-white font-bold px-6 py-2 rounded border border-white/50 block mx-auto">
                         Forcer le démarrage (Debug)
                     </button>

@@ -1,3 +1,5 @@
+// src/client/screens/GameBoard.tsx
+
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Card } from '../components/Card';
@@ -18,7 +20,6 @@ const bgColors: Record<string, string> = {
 };
 
 export const GameBoard = () => {
-  // On récupère toutes les fonctions du store, y compris requestRestart
   const { gameState, playerId, playCard, drawCard, sayUno, catchUno, leaveRoom, requestRestart } = useStore();
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
 
@@ -28,18 +29,16 @@ export const GameBoard = () => {
   const players = Array.from(gameState.players.values()) as Player[];
   const myIndex = players.findIndex(p => p.sessionId === playerId);
   
-  // Rotation pour que "MOI" soit toujours en bas (index 0 visuellement)
+  // Rotation pour que "MOI" soit toujours en bas
   const rotatedPlayers = [...players.slice(myIndex), ...players.slice(0, myIndex)];
 
   const isMyTurn = gameState.currentTurnPlayerId === playerId;
   const topCard = gameState.discardPile[gameState.discardPile.length - 1];
 
-  // Gestion du bouton "Catch UNO" (Attraper quelqu'un qui a oublié)
   const pendingUnoPlayerId = gameState.pendingUnoPenaltyPlayerId;
   const showCatchButton = pendingUnoPlayerId && pendingUnoPlayerId !== playerId;
   const culpritName = pendingUnoPlayerId ? gameState.players.get(pendingUnoPlayerId)?.name : '';
 
-  // Effet de victoire (Confetti)
   useEffect(() => {
     if (gameState.winner) {
       playSound('win');
@@ -47,7 +46,6 @@ export const GameBoard = () => {
     }
   }, [gameState.winner]);
 
-  // Gestion du clic sur une carte
   const onCardClick = (card: any) => {
     if (!isMyTurn) return;
     
@@ -76,12 +74,9 @@ export const GameBoard = () => {
     }
   };
 
-  // ----------------------------------------------------
-  // ÉCRAN DE FIN DE PARTIE (VICTOIRE OU DÉFAITE)
-  // ----------------------------------------------------
+  // --- ECRAN DE FIN ---
   if (gameState.winner) {
     const isWinner = gameState.winner === me?.name;
-
     return (
       <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center text-white p-4">
         <div className="mb-8 flex flex-col items-center animate-in fade-in zoom-in duration-500">
@@ -125,19 +120,17 @@ export const GameBoard = () => {
     );
   }
 
-  // ----------------------------------------------------
-  // PLATEAU DE JEU PRINCIPAL
-  // ----------------------------------------------------
+  // --- JEU ---
   return (
     <div className="w-full h-screen bg-green-800 overflow-hidden relative flex flex-col">
-      {/* Indicateur de direction en arrière-plan */}
+      {/* Background Direction */}
       <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
          <motion.div animate={{ rotate: gameState.direction === 1 ? 0 : 180 }} transition={{ duration: 0.5 }}>
             <div className="w-96 h-96 border-[20px] border-white rounded-full border-dashed animate-spin-slow" style={{ animationDuration: '20s' }} />
          </motion.div>
       </div>
 
-      {/* BOUTON "CATCH" (Pour attraper un oubli de UNO) */}
+      {/* CATCH BUTTON */}
       <AnimatePresence>
         {showCatchButton && (
           <motion.button
@@ -153,11 +146,15 @@ export const GameBoard = () => {
         )}
       </AnimatePresence>
 
-      {/* Table Centrale (Pioche + Défausse) */}
+      {/* TABLE CENTRALE */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-8 z-10">
         
-        {/* Pioche */}
-        <div className="relative cursor-pointer group" onClick={() => { if(isMyTurn) { drawCard(); playSound('draw'); } }} onMouseEnter={() => playSound('hover')}>
+        {/* Draw Pile (Pioche) */}
+        <div 
+           className="relative cursor-pointer group" 
+           onClick={() => { if(isMyTurn) { drawCard(); playSound('draw'); } }}
+           onMouseEnter={() => playSound('hover')} // AJOUT SON SURVOL
+        >
           <div className="w-24 h-36 md:w-32 md:h-48 bg-slate-900 rounded-xl border-4 border-white shadow-xl flex items-center justify-center group-hover:scale-105 transition-transform">
             <span className="text-red-500 font-bold text-3xl italic">UNO</span>
           </div>
@@ -168,11 +165,11 @@ export const GameBoard = () => {
           )}
         </div>
 
-        {/* Défausse (Carte active) */}
+        {/* Discard Pile */}
         <div className="relative w-24 h-36 md:w-32 md:h-48">
           {topCard && (
              <motion.div
-               key={topCard.id} // La clé force l'animation à chaque changement de carte
+               key={topCard.id}
                initial={{ scale: 1.5, opacity: 0, rotate: Math.random() * 20 - 10 }}
                animate={{ scale: 1, opacity: 1, rotate: 0 }}
                className="absolute inset-0"
@@ -180,13 +177,11 @@ export const GameBoard = () => {
                <Card card={topCard} playable={false} />
              </motion.div>
           )}
-          {/* Indicateur de la couleur active (utile pour les Joker) */}
           <div className={clsx("absolute -bottom-6 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 border-white shadow-md transition-colors duration-300", bgColors[gameState.currentColor] || 'bg-slate-800')} />
         </div>
-
       </div>
 
-      {/* Sélecteur de couleur (Joker) */}
+      {/* COLOR PICKER MODAL */}
       <AnimatePresence>
         {showColorPicker && (
           <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -203,9 +198,9 @@ export const GameBoard = () => {
         )}
       </AnimatePresence>
 
-      {/* Affichage des Adversaires */}
+      {/* OPPONENTS */}
       {rotatedPlayers.map((player, index) => {
-        if (index === 0) return null; // On ne s'affiche pas soi-même ici (on est en bas)
+        if (index === 0) return null; 
 
         return (
           <div key={player.sessionId} className="absolute flex flex-col items-center gap-2 transition-all duration-500" 
@@ -213,19 +208,14 @@ export const GameBoard = () => {
           >
             <div className={`relative w-16 h-16 rounded-full border-4 ${gameState.currentTurnPlayerId === player.sessionId ? 'border-yellow-400 animate-pulse' : 'border-slate-700'} bg-slate-800 flex items-center justify-center overflow-visible`}>
               <span className="text-white font-bold text-xl">{player.name[0]}</span>
-              
-              {/* Badge nombre de cartes */}
               <div className="absolute -bottom-2 bg-slate-700 text-xs px-2 py-0.5 rounded-full text-white border border-slate-500 whitespace-nowrap z-20">
                 {player.cardsRemaining} cartes
               </div>
-              
-              {/* Badge UNO */}
               {player.hasSaidUno && (
                  <div className="absolute -top-4 bg-red-600 text-white font-black text-xs px-2 py-1 rounded-full animate-bounce z-20 shadow-sm border border-white">UNO!</div>
               )}
             </div>
             
-            {/* Représentation visuelle des cartes adverses */}
             <div className="flex -space-x-3 mt-1">
               {Array.from({ length: Math.min(player.cardsRemaining, 5) }).map((_, i) => (
                  <div key={i} className="w-6 h-9 bg-slate-800 rounded border border-white/20 shadow-sm" />
@@ -236,28 +226,28 @@ export const GameBoard = () => {
         );
       })}
 
-      {/* MA MAIN (Joueur local) */}
+      {/* MY HAND */}
       <div className="mt-auto w-full pb-6 px-4">
         <div className="relative max-w-5xl mx-auto h-40 md:h-56 flex items-end justify-center perspective-1000">
           
-          {/* BOUTON UNO (Visible uniquement si 1 carte restante) */}
+          {/* UNO BUTTON */}
           {me && me.hand.length === 1 && !me.hasSaidUno && (
              <button onClick={() => { sayUno(); playSound('uno'); }} className="absolute -top-20 right-10 md:right-32 bg-yellow-500 text-red-600 font-black text-2xl w-20 h-20 rounded-full border-4 border-red-600 shadow-xl animate-bounce z-40 hover:scale-110 active:scale-95">
                UNO
              </button>
           )}
           
-          {/* Avertissement pénalité imminente */}
+          {/* PENALTY WARNING */}
           {pendingUnoPlayerId === playerId && (
              <div className="absolute -top-32 left-1/2 -translate-x-1/2 bg-red-600 text-white font-bold px-4 py-2 rounded-lg animate-pulse z-50 shadow-lg border-2 border-white">
                VITE ! CLIQUE SUR UNO ! (3s)
              </div>
           )}
 
-          {/* Cartes */}
+          {/* CARDS */}
           <div className="flex items-end justify-center -space-x-8 md:-space-x-12 hover:space-x-0 transition-all duration-300 w-full overflow-x-auto p-4 scrollbar-hide h-full">
             {me?.hand.map((card, i) => (
-              <div key={card.id} className="relative transition-transform duration-200 hover:z-50 hover:-translate-y-6 origin-bottom" style={{ zIndex: i }} onMouseEnter={() => playSound('hover')}>
+              <div key={card.id} className="relative transition-transform duration-200 hover:z-50 hover:-translate-y-6 origin-bottom" style={{ zIndex: i }}>
                 <Card 
                   card={card} 
                   playable={isMyTurn && (
@@ -271,10 +261,8 @@ export const GameBoard = () => {
               </div>
             ))}
           </div>
-          
         </div>
         
-        {/* Barre d'état (Tour de qui ?) */}
         <div className="text-center text-white/50 text-sm font-semibold h-6 mt-2">
            {isMyTurn 
              ? <span className="text-yellow-400 animate-pulse font-bold text-lg">À TOI DE JOUER !</span> 
@@ -285,7 +273,6 @@ export const GameBoard = () => {
   );
 };
 
-// Helper pour positionner les adversaires autour de la table
 const getOpponentStyle = (index: number, total: number) => {
     const styles: Record<string, React.CSSProperties> = {};
     if (total === 2) {
