@@ -100,7 +100,6 @@ export const GameBoard = () => {
   }
 
   return (
-    // CORRECTION MOBILE: h-[100dvh] est essentiel pour les navigateurs mobiles
     <div className="w-full h-[100dvh] bg-green-800 overflow-hidden relative flex flex-col">
       
       {/* Background Animé */}
@@ -149,6 +148,7 @@ export const GameBoard = () => {
 
         {/* Table (Pioche + Défausse) */}
         <div className="flex items-center gap-6 md:gap-12 z-10 scale-90 md:scale-100">
+            {/* Draw Pile */}
             <div className="relative cursor-pointer group" onClick={() => { if(isMyTurn) { drawCard(); playSound('draw'); } }} onMouseEnter={() => playSound('hover')}>
               <div className="w-20 h-32 md:w-24 md:h-36 bg-slate-900 rounded-xl border-4 border-white shadow-xl flex items-center justify-center group-hover:scale-105 transition-transform">
                 <span className="text-red-500 font-bold text-2xl italic">UNO</span>
@@ -157,10 +157,12 @@ export const GameBoard = () => {
                 <div className="absolute -top-3 -right-3 bg-red-600 text-white font-bold w-10 h-10 rounded-full flex items-center justify-center border-4 border-white animate-bounce shadow-lg z-20">+{gameState.drawStack}</div>
               )}
             </div>
+            
+            {/* Discard Pile */}
             <div className="relative w-20 h-32 md:w-24 md:h-36">
               {topCard && (
                 <motion.div key={topCard.id} initial={{ scale: 1.5, opacity: 0, rotate: Math.random() * 20 - 10 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} className="absolute inset-0">
-                  <Card card={topCard} playable={false} small /> 
+                  <Card card={topCard} playable={false} small /> {/* <--- small prop is now valid */}
                 </motion.div>
               )}
               <div className={clsx("absolute -bottom-6 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-4 border-white shadow-lg transition-colors duration-300", bgColors[gameState.currentColor] || 'bg-slate-800')} />
@@ -169,7 +171,6 @@ export const GameBoard = () => {
       </div>
 
       {/* ZONE BASSE (Main du joueur) - FIXÉE AU BAS */}
-      {/* Correction : pb-8 pour remonter le bas, z-30 pour être au dessus du reste */}
       <div className="flex-none w-full px-2 pb-8 relative z-30">
         
         {/* Bouton UNO Flottant */}
@@ -182,7 +183,7 @@ export const GameBoard = () => {
             </button>
         )}
 
-        {/* Correction : pt-16 pour donner plus d'espace au dessus des cartes (éviter coupure) */}
+        {/* Main des cartes avec espace supérieur augmenté (pt-16) */}
         <div className="relative max-w-5xl mx-auto h-32 md:h-56 flex items-end justify-center perspective-1000">
           <div className="flex items-end justify-center -space-x-8 md:-space-x-12 hover:space-x-0 transition-all duration-300 w-full overflow-x-auto p-2 pt-16 scrollbar-hide h-full">
             {me?.hand.map((card, i) => (
@@ -197,7 +198,7 @@ export const GameBoard = () => {
           </div>
         </div>
 
-        {/* Turn Indicator - Avec plus d'espace en bas grâce au pb-8 du parent */}
+        {/* Turn Indicator */}
         <div className="text-center h-6 mt-2">
            {isMyTurn 
              ? <span className="text-yellow-300 font-black text-lg md:text-xl animate-pulse tracking-wider drop-shadow-md">✨ YOUR TURN ✨</span> 
