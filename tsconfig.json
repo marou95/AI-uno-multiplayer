@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "useDefineForClassFields": true,
+    "useDefineForClassFields": false,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
@@ -11,7 +11,7 @@
     "isolatedModules": false,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true,
+    "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
@@ -22,9 +22,12 @@
   "include": ["src"],
   "ts-node": {
     "esm": true,
+    "experimentalSpecifierResolution": "node",
     "compilerOptions": {
       "module": "ESNext",
-      "moduleResolution": "node"
+      "moduleResolution": "node",
+      "experimentalDecorators": true,
+      "emitDecoratorMetadata": true
     }
   }
 }
