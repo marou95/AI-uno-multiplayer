@@ -26,6 +26,7 @@ const getBackendUrl = () => {
 const SERVER_URL = getBackendUrl();
 console.log("🔌 Connecting to Server:", SERVER_URL);
 
+// --- INTERFACE MISE À JOUR ---
 interface StoreState {
   client: Colyseus.Client;
   room: Colyseus.Room<UNOState> | null;
@@ -46,6 +47,7 @@ interface StoreState {
   drawCard: () => void;
   sayUno: () => void;
   catchUno: () => void;
+  requestRestart: () => void; // <--- C'est ici qu'il manquait la déclaration
   addNotification: (msg: string) => void;
   _setupRoom: (room: Colyseus.Room<UNOState>) => void;
 }
@@ -89,10 +91,8 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  // ---------------------------------------------------------
-  // CORRECTION MAJEURE ICI : Recherche manuelle de la salle
-  // ---------------------------------------------------------
-joinRoom: async (code) => {
+  // Logique de connexion robuste via API (celle qui fonctionne bien)
+  joinRoom: async (code) => {
     const store = get();
     if (store.isConnecting || store.room) return;
 
@@ -107,11 +107,9 @@ joinRoom: async (code) => {
 
       console.log(`🔍 Recherche de la salle ${roomCode} via API...`);
 
-      // 1. On construit l'URL HTTP à partir de l'URL WebSocket
-      // Remplace 'ws'/'wss' par 'http'/'https'
+      // Conversion ws:// -> http:// pour l'appel API
       const httpUrl = SERVER_URL.replace('ws', 'http');
       
-      // 2. On appelle notre endpoint serveur
       const response = await fetch(`${httpUrl}/lookup/${roomCode}`);
       
       if (!response.ok) {
@@ -121,7 +119,6 @@ joinRoom: async (code) => {
       const data = await response.json();
       console.log(`✅ Salle trouvée ! ID: ${data.roomId}. Connexion...`);
 
-      // 3. On rejoint directement par ID (infaillible)
       const room = await store.client.joinById(data.roomId, { name: nickname }) as Colyseus.Room<UNOState>;
       
       store._setupRoom(room);
@@ -168,6 +165,12 @@ joinRoom: async (code) => {
   sayUno: () => get().room?.send("sayUno"),
   catchUno: () => get().room?.send("catchUno"),
   
+  // --- IMPLÉMENTATION ---
+  requestRestart: () => {
+    console.log("🔄 Demande de restart envoyée...");
+    get().room?.send("restartGame");
+  },
+
   addNotification: (msg) => {
     set(state => ({ notifications: [...state.notifications, msg] }));
     setTimeout(() => {

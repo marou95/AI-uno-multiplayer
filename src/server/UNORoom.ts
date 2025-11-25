@@ -96,6 +96,14 @@ export class UNORoom extends Room<UNOState> {
                 }
             }
         });
+
+        this.onMessage("restartGame", (client: Client) => {
+        // On permet de relancer si la partie est finie
+        if (this.state.status === GameStatus.FINISHED) {
+            this.resetGame();
+        }
+    });
+        
     } catch (e) {
         console.error("❌ CRITICAL ERROR in onCreate:", e);
         this.disconnect();
@@ -169,6 +177,38 @@ export class UNORoom extends Room<UNOState> {
     }
 
     this.state.currentTurnPlayerId = this.playerIndexes[0];
+  }
+
+  resetGame() {
+    this.broadcast("notification", "🔄 Returning to Lobby...");
+    
+    // 1. Reset Game State variables
+    this.state.status = GameStatus.LOBBY;
+    this.state.winner = "";
+    this.state.direction = 1;
+    this.state.drawStack = 0;
+    this.state.currentColor = "";
+    this.state.currentType = "";
+    this.state.currentValue = -1;
+    this.state.pendingUnoPenaltyPlayerId = "";
+    
+    // 2. Clear piles
+    this.state.drawPile.clear();
+    this.state.discardPile.clear();
+
+    // 3. Reset Players
+    this.state.players.forEach(player => {
+        player.hand.clear();
+        player.cardsRemaining = 0;
+        player.isReady = false; // Force players to click "Ready" again
+        player.hasSaidUno = false;
+    });
+
+    // 4. Clear timeouts
+    if (this.unoPenaltyTimeout) {
+        this.unoPenaltyTimeout.clear();
+        this.unoPenaltyTimeout = null;
+    }
   }
 
   handlePlayCard(client: Client, cardId: string, chooseColor?: CardColor) {
