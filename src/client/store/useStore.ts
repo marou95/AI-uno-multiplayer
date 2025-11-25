@@ -134,9 +134,12 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // Update on change
     room.onStateChange((state) => {
-      // Force update en créant une nouvelle référence (shallow copy) pour que React réagisse
-      // Note: Colyseus mute l'objet state, donc {...state} aide React à voir le changement
-      set({ gameState: { ...state } as UNOState });
+      // On crée un clone qui GARDE le Prototype (et donc les méthodes .get, .players, etc.)
+      // Si on faisait juste {...state}, on perdrait le lien avec MapSchema
+      const clone = Object.create(Object.getPrototypeOf(state));
+      Object.assign(clone, state);
+      
+      set({ gameState: clone });
     });
 
     room.onMessage("notification", (msg) => get().addNotification(msg));
