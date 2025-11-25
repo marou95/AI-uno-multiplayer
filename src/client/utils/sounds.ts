@@ -1,19 +1,20 @@
-// Gestionnaire de sons Singleton
+// src/client/utils/sounds.ts
+
 class SoundManager {
   private music: HTMLAudioElement | null = null;
   private sounds: Map<string, HTMLAudioElement[]> = new Map();
   
-  // États
+  // Récupère la préférence utilisateur ou par défaut 'false' (non muet)
   public isMuted: boolean = localStorage.getItem('uno_muted') === 'true';
   public volume: number = 0.5;
 
-  // Banque de sons (URLs CDN pour tester directement)
+  // Banque de sons (URLs CDN libres de droits pour l'exemple)
   private sources = {
-    // SFX
+    // SFX (Effets sonores)
     hover: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
     click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
     play: 'https://assets.mixkit.co/active_storage/sfx/209/209-preview.mp3',
-    draw: 'https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3', // bruit de papier
+    draw: 'https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3', // bruit papier
     uno: 'https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3', // alerte
     win: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3', // victoire
     lose: 'https://assets.mixkit.co/active_storage/sfx/2955/2955-preview.mp3', // défaite
@@ -26,9 +27,9 @@ class SoundManager {
   };
 
   constructor() {
-    // Précharger les SFX (créer un pool de 3 instances par son pour éviter les coupures)
+    // Précharger les SFX (création d'un "pool" pour jouer plusieurs sons en même temps)
     Object.entries(this.sources).forEach(([key, src]) => {
-      if (key.startsWith('bgm_')) return; // On ne précharge pas les musiques en pool
+      if (key.startsWith('bgm_')) return; // On ne précharge pas les musiques ici
       
       const pool: HTMLAudioElement[] = [];
       for(let i=0; i<3; i++) {
@@ -43,16 +44,15 @@ class SoundManager {
   play(key: string) {
     if (this.isMuted) return;
 
-    // Gestion des SFX
     if (this.sounds.has(key)) {
       const pool = this.sounds.get(key);
-      const audio = pool?.find(a => a.paused) || pool?.[0]; // Trouver un libre ou prendre le premier
+      // Trouver un lecteur libre ou prendre le premier
+      const audio = pool?.find(a => a.paused) || pool?.[0]; 
       if (audio) {
         audio.currentTime = 0;
         audio.volume = this.volume;
-        audio.play().catch(() => {}); // Ignorer erreur autoplay
+        audio.play().catch(() => {}); // Ignorer erreur autoplay si pas d'interaction
       }
-      return;
     }
   }
 
@@ -67,10 +67,9 @@ class SoundManager {
     const src = this.sources[key];
     this.music = new Audio(src);
     this.music.loop = true; // Boucle infinie
-    this.music.volume = this.volume * 0.6; // La musique un peu moins forte que les SFX
+    this.music.volume = this.volume * 0.6; // Musique un peu moins forte que les SFX
     
-    // Fade in
-    this.music.play().catch(e => console.log("Autoplay bloqué par le navigateur, interaction requise"));
+    this.music.play().catch(e => console.log("Autoplay bloqué, interaction requise"));
   }
 
   stopMusic() {
@@ -86,15 +85,13 @@ class SoundManager {
     
     if (this.isMuted) {
       this.stopMusic();
-    } else {
-      // Si on demute, on ne relance pas la musique automatiquement ici, 
-      // elle sera relancée par le composant UI ou le contexte
     }
+    // Si on unmute, c'est l'UI qui relancera la musique via playMusic
     return this.isMuted;
   }
 }
 
 export const audioManager = new SoundManager();
 
-// Helper simple pour compatibilité avec votre code existant
+// Helper simple pour compatibilité
 export const playSound = (key: string) => audioManager.play(key);

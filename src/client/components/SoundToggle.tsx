@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX } from 'lucide-react'; // Assurez-vous d'avoir lucide-react ou utilisez du texte
+import { Volume2, VolumeX } from 'lucide-react'; 
 import { audioManager } from '../utils/sounds';
 import { useStore } from '../store/useStore';
 
@@ -30,7 +30,7 @@ export const SoundToggle = () => {
     } else if (gameState.status === 'PLAYING') {
         audioManager.playMusic('bgm_game');
     } else if (gameState.status === 'FINISHED') {
-        audioManager.stopMusic(); // Arrêt musique pendant l'écran de victoire/défaite
+        audioManager.stopMusic(); // Silence ou son spécifique à la fin
     }
   }, [gameState?.status, isMuted]);
 
