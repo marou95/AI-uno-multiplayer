@@ -10,16 +10,26 @@ const getBackendUrl = () => {
   const meta = import.meta as any;
   const env = meta.env || {};
   
+  // 1. Si une URL est forcée dans le .env
   if (env.VITE_SERVER_URL) {
     console.log('Using VITE_SERVER_URL:', env.VITE_SERVER_URL);
     return env.VITE_SERVER_URL;
   }
   
+  // 2. Si on est sur Vercel (Production Frontend), on DOIT utiliser le backend Railway
+  // On vérifie le nom de domaine pour être sûr
+  if (window.location.hostname.includes('vercel.app')) {
+     console.log('Detected Vercel deployment, using Railway backend');
+     return RAILWAY_BACKEND;
+  }
+  
+  // 3. Si on est en mode PROD générique
   if (env.PROD) {
     console.log('Production mode, using Railway');
     return RAILWAY_BACKEND;
   }
   
+  // 4. Fallback: Localhost (Dev mode)
   const protocol = window.location.protocol.replace('http', 'ws');
   const url = `${protocol}//${window.location.host}`;
   console.log('Development mode, using proxy:', url);
