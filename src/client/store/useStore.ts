@@ -105,25 +105,24 @@ joinRoom: async (code) => {
       if (!nickname) throw new Error("Pseudo requis");
       if (roomCode.length !== 5) throw new Error("Le code doit faire 5 lettres");
 
-      console.log(`🔍 Recherche de la salle : ${roomCode}...`);
+      console.log(`🔍 Recherche de la salle ${roomCode} via API...`);
 
-      // ASTUCE : On cast en 'any' car TypeScript peut ne pas voir la méthode getAvailableRooms
-      // alors qu'elle existe bel et bien dans la librairie JS au runtime.
-      const availableRooms = await (store.client as any).getAvailableRooms("uno");
+      // 1. On construit l'URL HTTP à partir de l'URL WebSocket
+      // Remplace 'ws'/'wss' par 'http'/'https'
+      const httpUrl = SERVER_URL.replace('ws', 'http');
       
-      console.log("📋 Salles disponibles :", availableRooms.length);
-
-      // On cherche manuellement la salle qui a le bon code dans ses métadonnées
-      const match = availableRooms.find((room: any) => room.metadata && room.metadata.roomCode === roomCode);
-
-      if (!match) {
-        throw new Error(`Aucune salle trouvée avec le code ${roomCode}`);
+      // 2. On appelle notre endpoint serveur
+      const response = await fetch(`${httpUrl}/lookup/${roomCode}`);
+      
+      if (!response.ok) {
+        throw new Error("Salle introuvable ou code invalide");
       }
 
-      console.log(`✅ Salle trouvée ! ID: ${match.roomId}. Connexion...`);
+      const data = await response.json();
+      console.log(`✅ Salle trouvée ! ID: ${data.roomId}. Connexion...`);
 
-      // On se connecte DIRECTEMENT à l'ID unique de la salle (plus de filtrage flou)
-      const room = await store.client.joinById(match.roomId, { name: nickname }) as Colyseus.Room<UNOState>;
+      // 3. On rejoint directement par ID (infaillible)
+      const room = await store.client.joinById(data.roomId, { name: nickname }) as Colyseus.Room<UNOState>;
       
       store._setupRoom(room);
       set({ isConnecting: false });
@@ -131,10 +130,6 @@ joinRoom: async (code) => {
     } catch (e: any) {
       console.error("❌ Join error:", e);
       let msg = e.message || "Impossible de rejoindre";
-      
-      // Traduction des erreurs courantes
-      if (msg.includes("not found")) msg = "Salle introuvable ou code invalide";
-      
       set({ error: msg, isConnecting: false });
       get().addNotification("⚠️ " + msg);
     }
