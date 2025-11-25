@@ -23,8 +23,8 @@ export const Lobby = () => {
   };
 
   return (
-    // CONTENEUR PRINCIPAL (ajustement pour le défilement)
-    <div className="h-full min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-start p-4 relative overflow-hidden">
+    // CONTENEUR PRINCIPAL
+    <div className="h-full min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-start relative overflow-hidden">
       
       {/* Background decorations */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
@@ -32,9 +32,9 @@ export const Lobby = () => {
          <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
-      <div className="max-w-2xl w-full h-full md:h-auto bg-slate-800/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/10 relative z-10 animate-in fade-in zoom-in duration-300 flex flex-col">
+      <div className="max-w-2xl w-full h-full md:h-auto bg-slate-800/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/10 relative z-10 animate-in fade-in zoom-in duration-300 flex flex-col my-4">
         
-        {/* HEADER STICKY (Code de la Salle) - Rendu visible en haut */}
+        {/* HEADER STICKY (Code de la Salle) - Fixé en haut */}
         <div className="sticky top-0 z-20 bg-slate-800/90 backdrop-blur-md pt-4 pb-2 px-4 md:p-8 rounded-t-3xl border-b border-white/10">
             <div className="flex flex-col items-center">
                 <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500 mb-2 drop-shadow-sm tracking-wider">
@@ -55,8 +55,9 @@ export const Lobby = () => {
             </div>
         </div>
         
-        {/* PLAYERS GRID CONTAINER - RENDU DEFILABLE */}
-        <div className="p-4 md:px-8 flex-grow overflow-y-auto max-h-[60vh] md:max-h-96">
+        {/* PLAYERS GRID CONTAINER - RENDU DÉFILABLE */}
+        {/* Ajout de padding horizontal pour les joueurs et max-h pour limiter le défilement au milieu */}
+        <div className="px-4 md:px-8 flex-grow overflow-y-auto max-h-[60vh] md:max-h-96 py-4">
           <div className="flex items-center justify-between mb-4 px-2">
             <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">PLAYERS ({players.length}/6)</h3>
             {isHost && <span className="text-yellow-500 text-xs font-bold bg-yellow-500/10 px-2 py-1 rounded">YOU ARE HOST</span>}
@@ -105,7 +106,7 @@ export const Lobby = () => {
           </div>
         </div>
 
-        {/* FOOTER STICKY (Actions) - Rendu visible en bas */}
+        {/* FOOTER STICKY (Actions) - Fixé en bas */}
         <div className="sticky bottom-0 z-20 bg-slate-800/90 backdrop-blur-md pt-6 pb-4 px-4 md:p-8 rounded-b-3xl border-t border-white/10">
           <div className="flex flex-col gap-3">
             {/* READY BUTTON */}
