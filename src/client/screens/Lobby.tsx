@@ -5,40 +5,29 @@ import { Player } from '../../server/schema/UNOState';
 import { playSound } from '../utils/sounds';
 
 export const Lobby = () => {
-  // On utilise _tick pour garantir le rafraîchissement
-  const { gameState, playerId, toggleReady, startGame, leaveRoom, _tick } = useStore();
+  const { gameState, playerId, toggleReady, startGame, leaveRoom } = useStore();
   const [copied, setCopied] = useState(false);
 
-  // --- Sécurité Anti-Crash ---
-  if (!gameState || !gameState.players || typeof gameState.players.get !== 'function') {
-      // Si la MapSchema n'est pas encore fonctionnelle, on affiche un loader
-      return (
-          <div className="min-h-screen w-full bg-slate-900 flex items-center justify-center text-white flex-col gap-4">
-              <Loader2 className="animate-spin text-yellow-500" size={48} />
-              <p className="text-slate-400 font-bold animate-pulse">Syncing State...</p>
-          </div>
-      );
-  }
-
-  // Accès sécurisé aux données avec vérification supplémentaire
-  let players: Player[] = [];
-  let me: Player | null = null;
-
-  try {
-    players = Array.from(gameState.players.values()) as Player[];
-    me = gameState.players.get(playerId || "") || null;
-  } catch (error) {
-    console.error("Error accessing players:", error);
+  // Vérification de base uniquement
+  if (!gameState || !playerId) {
     return (
       <div className="min-h-screen w-full bg-slate-900 flex items-center justify-center text-white flex-col gap-4">
         <Loader2 className="animate-spin text-yellow-500" size={48} />
-        <p className="text-slate-400 font-bold animate-pulse">Loading Players...</p>
+        <p className="text-slate-400 font-bold animate-pulse">Loading Lobby...</p>
       </div>
     );
   }
 
+  const players = Array.from(gameState.players.values()) as Player[];
+  const me = gameState.players.get(playerId);
+  
   if (!me) {
-    me = { isReady: false, name: "..." } as Player;
+    return (
+      <div className="min-h-screen w-full bg-slate-900 flex items-center justify-center text-white flex-col gap-4">
+        <Loader2 className="animate-spin text-yellow-500" size={48} />
+        <p className="text-slate-400 font-bold animate-pulse">Syncing...</p>
+      </div>
+    );
   }
   
   const isHost = players[0]?.id === playerId;
@@ -144,12 +133,12 @@ export const Lobby = () => {
            <button 
               onClick={handleReady}
               className={`w-full py-3 md:py-4 rounded-xl font-black text-lg md:text-xl tracking-wide transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg flex items-center justify-center gap-3 ${
-                 me?.isReady 
+                 me.isReady 
                  ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
                  : "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 shadow-green-900/30"
               }`}
            >
-              {me?.isReady ? "CANCEL READY" : "READY UP !"}
+              {me.isReady ? "CANCEL READY" : "READY UP !"}
            </button>
 
            {isHost && (
