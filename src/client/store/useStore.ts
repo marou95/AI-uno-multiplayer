@@ -131,18 +131,20 @@ export const useStore = create<StoreState>((set, get) => ({
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
     set({ room, playerId: room.sessionId, error: null });
     
-    // Initial State
-    set({ gameState: room.state });
+    // Initial State avec vérification
+    if (room.state && room.state.players) {
+      set({ gameState: room.state });
+    }
 
     // Update on change
     room.onStateChange((state) => {
-      // --- CORRECTIF FINAL ---
-      // On ne touche plus à l'objet state (pour garder .get()).
-      // On incrémente juste _tick pour dire à React "quelque chose a changé, redessine !"
-      set((prev) => ({ 
+      // Vérification que le state est valide avant de le stocker
+      if (state && state.players && typeof state.players.get === 'function') {
+        set((prev) => ({ 
           gameState: state, 
           _tick: prev._tick + 1 
-      }));
+        }));
+      }
     });
 
     room.onMessage("notification", (msg) => get().addNotification(msg));
