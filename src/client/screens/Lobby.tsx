@@ -56,7 +56,6 @@ export const Lobby = () => {
         </div>
         
         {/* PLAYERS GRID CONTAINER - RENDU DÉFILABLE */}
-        {/* Ajout de padding horizontal pour les joueurs et max-h pour limiter le défilement au milieu */}
         <div className="px-4 md:px-8 flex-grow overflow-y-auto max-h-[60vh] md:max-h-96 py-4">
           <div className="flex items-center justify-between mb-4 px-2">
             <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">PLAYERS ({players.length}/6)</h3>
@@ -106,13 +105,17 @@ export const Lobby = () => {
           </div>
         </div>
 
-        {/* FOOTER STICKY (Actions) - Fixé en bas */}
-        <div className="sticky bottom-0 z-20 bg-slate-800/90 backdrop-blur-md pt-6 pb-4 px-4 md:p-8 rounded-b-3xl border-t border-white/10">
-          <div className="flex flex-col gap-3">
+        {/* FOOTER STICKY (Actions) - Fixé en bas avec une disposition plus compacte */}
+        <div className="sticky bottom-0 z-20 bg-slate-800/90 backdrop-blur-md pt-4 pb-2 px-4 md:p-8 rounded-b-3xl border-t border-white/10">
+          
+          {/* Conteneur Flex pour READY UP! et START GAME */}
+          <div className="flex gap-3 mb-3">
+            
             {/* READY BUTTON */}
             <button 
                onClick={() => { toggleReady(); playSound('click'); }}
-               className={`w-full py-4 rounded-xl font-black text-xl tracking-wide transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg flex items-center justify-center gap-3 ${
+               // Utilisation de w-full et flex-1 pour qu'il prenne la moitié de l'espace disponible
+               className={`flex-1 py-3 rounded-xl font-black text-base tracking-wide transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg flex items-center justify-center gap-2 ${
                    me?.isReady 
                    ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
                    : "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 shadow-green-900/30"
@@ -126,20 +129,26 @@ export const Lobby = () => {
                <button 
                   disabled={!canStart}
                   onClick={() => { startGame(); playSound('play'); }}
-                  className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale hover:brightness-110 transition-all shadow-lg shadow-orange-900/20"
+                  // Utilisation de flex-1 pour qu'il prenne la moitié de l'espace disponible
+                  className="flex-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-black py-3 rounded-xl font-black text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale hover:brightness-110 transition-all shadow-lg shadow-orange-900/20"
                >
-                  <Play size={24} fill="currentColor" /> START GAME
+                  <Play size={18} fill="currentColor" /> START
                </button>
             )}
-
-            {/* LEAVE BUTTON */}
-            <button 
-               onClick={() => { leaveRoom(); playSound('click'); }}
-               className="mt-2 w-full text-slate-400 text-sm py-2 hover:text-red-400 flex items-center justify-center gap-2 transition-colors font-medium"
-            >
-               <LogOut size={16} /> Leave Room
-            </button>
+            
+            {/* Si c'est un joueur normal, le bouton READY prend toute la place */}
+            {!isHost && (
+                <div className="flex-1"></div> // Pour maintenir l'alignement visuel si nécessaire
+            )}
           </div>
+          
+          {/* LEAVE BUTTON */}
+          <button 
+             onClick={() => { leaveRoom(); playSound('click'); }}
+             className="w-full text-slate-400 text-sm py-1 hover:text-red-400 flex items-center justify-center gap-2 transition-colors font-medium"
+          >
+             <LogOut size={16} /> Leave Room
+          </button>
         </div>
 
       </div>
