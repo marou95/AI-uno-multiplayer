@@ -136,12 +136,24 @@ export const GameBoard = () => {
           if (index === 0) return null; 
           return (
             <div key={player.sessionId} className="absolute flex flex-col items-center gap-1 md:gap-2 transition-all duration-500" style={getOpponentStyle(index, rotatedPlayers.length)}>
-              <div className={`relative w-12 h-12 md:w-16 md:h-16 rounded-full border-4 ${gameState.currentTurnPlayerId === player.sessionId ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.5)] scale-110' : 'border-slate-700'} bg-slate-800 flex items-center justify-center transition-all duration-300`}>
-                <span className="text-white font-bold text-lg md:text-xl">{player.name[0].toUpperCase()}</span>
-                <div className="absolute -bottom-2 bg-slate-800 text-[10px] md:text-xs px-2 py-0.5 rounded-full text-white border border-slate-600 whitespace-nowrap z-20 shadow-md">{player.cardsRemaining}</div>
-                {player.hasSaidUno && <div className="absolute -top-4 bg-red-600 text-white font-black text-[10px] px-2 py-1 rounded-full animate-bounce z-20 shadow-sm border border-white">UNO!</div>}
+              
+                {/* CHANGEMENT ICI : Conteneur pour le nom complet au lieu du rond */}
+              <div className={clsx(
+                    "relative px-3 py-1 md:px-4 md:py-2 rounded-full border-4 text-sm md:text-base font-bold transition-all duration-300 whitespace-nowrap",
+                    gameState.currentTurnPlayerId === player.sessionId 
+                        ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.5)] scale-110 bg-slate-700 text-white' 
+                        : 'border-slate-700 bg-slate-800 text-slate-400'
+                )}>
+                    {player.name}
+                    {/* Indicateur de cartes restantes déplacé sous le nom */}
+                  <div className="absolute -bottom-2 right-0 bg-slate-800 text-[10px] md:text-xs px-2 py-0.5 rounded-full text-white border border-slate-600 whitespace-nowrap z-20 shadow-md transform translate-x-1/2">
+                        {player.cardsRemaining}
+                    </div>
+                  
+                  {player.hasSaidUno && <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white font-black text-[10px] px-2 py-1 rounded-full animate-bounce z-20 shadow-sm border border-white">UNO!</div>}
               </div>
-              <div className="flex -space-x-2 md:-space-x-3 mt-1">
+              
+              <div className="flex -space-x-2 md:-space-x-3 mt-4"> {/* Marge ajustée suite au changement de design */}
                 {Array.from({ length: Math.min(player.cardsRemaining, 5) }).map((_, i) => <div key={i} className="w-4 h-6 md:w-6 md:h-9 bg-slate-800 rounded border border-white/20 shadow-sm" />)}
                 {player.cardsRemaining > 5 && <div className="text-white text-[10px] self-center pl-1 font-bold">+</div>}
               </div>
@@ -165,13 +177,13 @@ export const GameBoard = () => {
                   <Card card={topCard} playable={false} small /> {/* Utilisation version small sur mobile si besoin */}
                 </motion.div>
               )}
-              <div className={clsx("absolute -bottom-6 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-4 border-white shadow-lg transition-colors duration-300", bgColors[gameState.currentColor] || 'bg-slate-800')} />
+              {/* SUPPRESSION : L'indicateur de couleur en dessous de la carte posée a été retiré ici */}
             </div>
         </div>
       </div>
 
       {/* ZONE BASSE (Main du joueur) - FIXÉE AU BAS */}
-      {/* CHANGEMENTS ICI : min-h pour garantir l'espace, h-auto pour s'adapter. */}
+      {/* flex-none assure que cette zone ne rétrécit pas */}
       <div className="flex-none w-full px-2 pb-2 md:pb-6 relative z-30">
         
         {/* Bouton UNO Flottant */}
@@ -185,7 +197,6 @@ export const GameBoard = () => {
             </button>
         )}
 
-        {/* CHANGEMENT DE HAUTEUR et DE PADDING : h-auto min-h-[140px] et ajustement du padding interne */}
         <div className="relative max-w-5xl mx-auto h-auto min-h-[140px] md:min-h-[220px] flex items-end justify-center perspective-1000">
           <div className="flex items-end justify-center -space-x-8 md:-space-x-12 hover:space-x-0 transition-all duration-300 w-full overflow-x-auto px-2 py-2 pt-8 md:pt-16 scrollbar-hide h-full">
             {me?.hand.map((card, i) => (
@@ -197,8 +208,8 @@ export const GameBoard = () => {
                 />
               </div>
             ))}
+            </div>
           </div>
-        </div>
 
         <div className="text-center h-6 mt-1">
            {isMyTurn 
