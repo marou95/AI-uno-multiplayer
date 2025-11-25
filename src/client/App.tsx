@@ -45,7 +45,7 @@ const App = () => {
           {/* Titre */}
           <div className="text-center">
             <div className="inline-block transform hover:rotate-3 transition-transform duration-300">
-               <h1 className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 italic tracking-tighter drop-shadow-sm">UNO</h1>
+               <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-yellow-500 tracking-tighter drop-shadow-sm">UNO</h1>
             </div>
             <p className="text-slate-400 mt-2 font-medium tracking-wide text-sm uppercase">Multiplayer AI Edition</p>
           </div>
