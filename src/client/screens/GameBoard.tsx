@@ -96,7 +96,7 @@ export const GameBoard = () => {
          </motion.div>
       </div>
 
-      {/* CATCH BUTTON OVERLAY */}
+      {/* CATCH BUTTON OVERLAY (For opponents) */}
       <AnimatePresence>
         {showCatchButton && (
           <motion.button
@@ -196,17 +196,17 @@ export const GameBoard = () => {
       <div className="mt-auto w-full pb-6 px-4">
         <div className="relative max-w-5xl mx-auto h-40 md:h-56 flex items-end justify-center perspective-1000">
           
-          {/* UNO Button */}
-          {me && me.hand.length <= 2 && !me.hasSaidUno && (
+          {/* UNO Button - MODIFIÉ: Visible uniquement s'il reste 1 carte */}
+          {me && me.hand.length === 1 && !me.hasSaidUno && (
              <button onClick={() => { sayUno(); playSound('uno'); }} className="absolute -top-20 right-10 md:right-32 bg-yellow-500 text-red-600 font-black text-2xl w-20 h-20 rounded-full border-4 border-red-600 shadow-xl animate-bounce z-40 hover:scale-110 active:scale-95">
                UNO
              </button>
           )}
           
-          {/* Self-Save Warning (Optional UX) */}
+          {/* Self-Save Warning */}
           {pendingUnoPlayerId === playerId && (
-             <div className="absolute -top-32 left-1/2 -translate-x-1/2 bg-red-600 text-white font-bold px-4 py-2 rounded-lg animate-pulse z-50">
-               QUICK! CLICK UNO!
+             <div className="absolute -top-32 left-1/2 -translate-x-1/2 bg-red-600 text-white font-bold px-4 py-2 rounded-lg animate-pulse z-50 shadow-lg border-2 border-white">
+               QUICK ! CLICK UNO ! (3s)
              </div>
           )}
 
