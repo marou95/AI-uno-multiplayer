@@ -1,5 +1,3 @@
-// src/client/screens/GameBoard.tsx
-
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Card } from '../components/Card';
@@ -29,7 +27,6 @@ export const GameBoard = () => {
   const players = Array.from(gameState.players.values()) as Player[];
   const myIndex = players.findIndex(p => p.sessionId === playerId);
   
-  // Rotation pour que "MOI" soit toujours en bas
   const rotatedPlayers = [...players.slice(myIndex), ...players.slice(0, myIndex)];
 
   const isMyTurn = gameState.currentTurnPlayerId === playerId;
@@ -74,9 +71,10 @@ export const GameBoard = () => {
     }
   };
 
-  // --- ECRAN DE FIN ---
+  // --- ENGLISH WINNER SCREEN ---
   if (gameState.winner) {
     const isWinner = gameState.winner === me?.name;
+
     return (
       <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center text-white p-4">
         <div className="mb-8 flex flex-col items-center animate-in fade-in zoom-in duration-500">
@@ -84,18 +82,18 @@ export const GameBoard = () => {
                 <>
                     <div className="text-8xl mb-6 animate-bounce">👑</div>
                     <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-300 to-yellow-600 mb-4">
-                        VICTOIRE !
+                        VICTORY !
                     </h1>
-                    <p className="text-2xl text-yellow-100 font-medium">Tu es le roi du UNO !</p>
+                    <p className="text-2xl text-yellow-100 font-medium">You are the UNO King!</p>
                 </>
             ) : (
                 <>
                     <div className="text-8xl mb-6 grayscale opacity-80">💀</div>
                     <h1 className="text-6xl md:text-8xl font-black text-gray-500 mb-4">
-                        PERDU...
+                        DEFEAT
                     </h1>
                     <p className="text-2xl text-gray-400">
-                        <span className="text-yellow-500 font-bold">{gameState.winner}</span> a remporté la partie.
+                        <span className="text-yellow-500 font-bold">{gameState.winner}</span> won the game.
                     </p>
                 </>
             )}
@@ -106,24 +104,24 @@ export const GameBoard = () => {
                 onClick={requestRestart} 
                 className="flex-1 py-4 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl text-xl transition-all hover:scale-105 shadow-lg shadow-green-900/50 flex items-center justify-center gap-2"
             >
-                🔄 Rejouer
+                🔄 Play Again
             </button>
             
             <button 
                 onClick={leaveRoom} 
                 className="flex-1 py-4 bg-slate-700 hover:bg-red-600 text-white font-bold rounded-xl text-xl transition-all hover:scale-105 shadow-lg flex items-center justify-center gap-2"
             >
-                🚪 Quitter
+                🚪 Leave
             </button>
         </div>
       </div>
     );
   }
 
-  // --- JEU ---
+  // --- GAME BOARD ---
   return (
     <div className="w-full h-screen bg-green-800 overflow-hidden relative flex flex-col">
-      {/* Background Direction */}
+      {/* Background */}
       <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
          <motion.div animate={{ rotate: gameState.direction === 1 ? 0 : 180 }} transition={{ duration: 0.5 }}>
             <div className="w-96 h-96 border-[20px] border-white rounded-full border-dashed animate-spin-slow" style={{ animationDuration: '20s' }} />
@@ -141,19 +139,19 @@ export const GameBoard = () => {
             className="absolute top-24 left-1/2 -translate-x-1/2 z-40 bg-red-600 text-white font-black text-2xl px-8 py-4 rounded-full border-4 border-white shadow-2xl animate-pulse flex items-center gap-3 hover:scale-110 transition active:bg-red-700"
           >
             <Siren size={32} className="animate-spin" />
-            CONTRE-UNO ! ({culpritName})
+            CATCH UNO! ({culpritName})
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* TABLE CENTRALE */}
+      {/* CENTER TABLE */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-8 z-10">
         
-        {/* Draw Pile (Pioche) */}
+        {/* Draw Pile */}
         <div 
            className="relative cursor-pointer group" 
            onClick={() => { if(isMyTurn) { drawCard(); playSound('draw'); } }}
-           onMouseEnter={() => playSound('hover')} // AJOUT SON SURVOL
+           onMouseEnter={() => playSound('hover')} 
         >
           <div className="w-24 h-36 md:w-32 md:h-48 bg-slate-900 rounded-xl border-4 border-white shadow-xl flex items-center justify-center group-hover:scale-105 transition-transform">
             <span className="text-red-500 font-bold text-3xl italic">UNO</span>
@@ -181,7 +179,7 @@ export const GameBoard = () => {
         </div>
       </div>
 
-      {/* COLOR PICKER MODAL */}
+      {/* COLOR PICKER */}
       <AnimatePresence>
         {showColorPicker && (
           <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -209,7 +207,7 @@ export const GameBoard = () => {
             <div className={`relative w-16 h-16 rounded-full border-4 ${gameState.currentTurnPlayerId === player.sessionId ? 'border-yellow-400 animate-pulse' : 'border-slate-700'} bg-slate-800 flex items-center justify-center overflow-visible`}>
               <span className="text-white font-bold text-xl">{player.name[0]}</span>
               <div className="absolute -bottom-2 bg-slate-700 text-xs px-2 py-0.5 rounded-full text-white border border-slate-500 whitespace-nowrap z-20">
-                {player.cardsRemaining} cartes
+                {player.cardsRemaining} cards
               </div>
               {player.hasSaidUno && (
                  <div className="absolute -top-4 bg-red-600 text-white font-black text-xs px-2 py-1 rounded-full animate-bounce z-20 shadow-sm border border-white">UNO!</div>
@@ -240,7 +238,7 @@ export const GameBoard = () => {
           {/* PENALTY WARNING */}
           {pendingUnoPlayerId === playerId && (
              <div className="absolute -top-32 left-1/2 -translate-x-1/2 bg-red-600 text-white font-bold px-4 py-2 rounded-lg animate-pulse z-50 shadow-lg border-2 border-white">
-               VITE ! CLIQUE SUR UNO ! (3s)
+               HURRY! CLICK UNO! (3s)
              </div>
           )}
 
@@ -265,8 +263,8 @@ export const GameBoard = () => {
         
         <div className="text-center text-white/50 text-sm font-semibold h-6 mt-2">
            {isMyTurn 
-             ? <span className="text-yellow-400 animate-pulse font-bold text-lg">À TOI DE JOUER !</span> 
-             : `En attente de ${players.find(p => p.sessionId === gameState.currentTurnPlayerId)?.name}...`}
+             ? <span className="text-yellow-400 animate-pulse font-bold text-lg">YOUR TURN !</span> 
+             : `Waiting for ${players.find(p => p.sessionId === gameState.currentTurnPlayerId)?.name}...`}
         </div>
       </div>
     </div>

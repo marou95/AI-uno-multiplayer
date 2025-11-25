@@ -1,42 +1,38 @@
 import { Schema, MapSchema, ArraySchema, type } from "@colyseus/schema";
-import { GameStatus } from "../../shared/types";
-import type { CardColor, CardType } from "../../shared/types";
 
 export class Card extends Schema {
   @type("string") id: string = "";
-  @type("string") color: CardColor = "black";
-  @type("string") type: CardType = "number";
+  @type("string") color: string = ""; // 'red', 'blue', 'green', 'yellow', 'black'
+  @type("string") type: string = ""; // 'number', 'skip', 'reverse', 'draw2', 'wild', 'wild4'
   @type("number") value: number = -1;
 }
 
 export class Player extends Schema {
   @type("string") id: string = "";
   @type("string") sessionId: string = "";
-  @type("string") name: string = "Guest";
+  @type("string") name: string = "";
+  @type([Card]) hand = new ArraySchema<Card>();
   @type("boolean") isReady: boolean = false;
-  @type("boolean") isConnected: boolean = true;
-  @type("boolean") hasSaidUno: boolean = false;
   @type("number") cardsRemaining: number = 0;
-  @type([Card]) hand: ArraySchema<Card> = new ArraySchema<Card>();
+  @type("boolean") hasSaidUno: boolean = false;
+  @type("boolean") isConnected: boolean = true;
 }
 
 export class UNOState extends Schema {
-  @type("string") status: string = GameStatus.LOBBY;
-  @type("string") roomCode: string = "";
+  @type({ map: Player }) players = new MapSchema<Player>();
+  @type([Card]) drawPile = new ArraySchema<Card>();
+  @type([Card]) discardPile = new ArraySchema<Card>();
+  
   @type("string") currentTurnPlayerId: string = "";
-  @type("string") winner: string = "";
-  @type("number") direction: number = 1;
-  @type({ map: Player }) players: MapSchema<Player> = new MapSchema<Player>();
-  
-  @type([Card]) drawPile: ArraySchema<Card> = new ArraySchema<Card>();
-  @type([Card]) discardPile: ArraySchema<Card> = new ArraySchema<Card>();
-  
+  @type("string") direction: number = 1; // 1 or -1
   @type("string") currentColor: string = "";
   @type("string") currentType: string = "";
   @type("number") currentValue: number = -1;
   @type("number") drawStack: number = 0;
-
-  // Tracks the ID of a player who just played down to 1 card without saying UNO
-  // If set, opponents can "Catch" this player.
+  @type("string") status: string = "LOBBY"; // 'LOBBY', 'PLAYING', 'FINISHED'
+  @type("string") winner: string = "";
   @type("string") pendingUnoPenaltyPlayerId: string = "";
+
+  // --- AJOUT IMPORTANT : Le code public de la salle ---
+  @type("string") roomCode: string = ""; 
 }

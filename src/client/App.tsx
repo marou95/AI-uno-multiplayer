@@ -1,5 +1,3 @@
-// src/client/App.tsx
-
 import React from 'react';
 import { Lobby } from './screens/Lobby';
 import { GameBoard } from './screens/GameBoard';
@@ -7,15 +5,13 @@ import { useStore } from './store/useStore';
 import { SoundToggle } from './components/SoundToggle';
 
 const App = () => {
-  const { room, gameState, error, notifications } = useStore();
+  const { room, gameState, notifications } = useStore();
 
-  // Écran de chargement initial ou connexion (Pas de room active)
   if (!room) {
     return (
       <>
         <SoundToggle />
         <Lobby />
-        {/* Notifications Overlay */}
         <div className="fixed top-20 right-4 flex flex-col gap-2 z-[100] pointer-events-none">
           {notifications.map((msg, i) => (
             <div key={i} className="bg-slate-800 text-white px-4 py-2 rounded shadow-lg animate-in fade-in slide-in-from-right-10 border-l-4 border-yellow-400">
@@ -27,12 +23,10 @@ const App = () => {
     );
   }
 
-  // En jeu (ou Lobby d'attente colyseus une fois connecté)
   return (
     <>
       <SoundToggle />
       
-      {/* Affichage des notifications */}
       <div className="fixed top-20 right-4 flex flex-col gap-2 z-[100] pointer-events-none">
         {notifications.map((msg, i) => (
           <div key={i} className="bg-slate-800 text-white px-4 py-2 rounded shadow-lg animate-in fade-in slide-in-from-right-10 border-l-4 border-yellow-400">
@@ -45,16 +39,21 @@ const App = () => {
         <GameBoard />
       ) : (
         <div className="w-full h-screen bg-green-800 flex flex-col items-center justify-center text-white p-4">
-             {/* UI d'attente (Lobby Room) */}
              <div className="text-center">
                 <h1 className="text-4xl font-black mb-4 animate-bounce">LOBBY</h1>
                 <div className="bg-black/30 p-8 rounded-xl backdrop-blur-sm">
-                    {/* CORRECTION ICI : room.roomId au lieu de room.id */}
-                    <p className="mb-4 text-xl">Code: <span className="font-mono bg-white text-black px-2 py-1 rounded select-all">{room.roomId}</span></p>
-                    <p className="mb-8 opacity-75">En attente de joueurs...</p>
+                    
+                    {/* CORRECTION MAJEURE ICI : Affichage du Code à 5 lettres */}
+                    <p className="mb-4 text-xl">
+                        Room Code: <span className="font-mono bg-white text-black px-2 py-1 rounded select-all tracking-widest">
+                            {gameState?.roomCode || "..."}
+                        </span>
+                    </p>
+
+                    <p className="mb-8 opacity-75">Waiting for players...</p>
                     
                     <button onClick={() => useStore.getState().toggleReady()} className="bg-yellow-400 text-black font-bold px-8 py-3 rounded-full text-xl hover:scale-105 transition">
-                        {gameState?.players.get(room.sessionId)?.isReady ? "PRÊT !" : "CLIQUER POUR ÊTRE PRÊT"}
+                        {gameState?.players.get(room.sessionId)?.isReady ? "READY !" : "CLICK TO BE READY"}
                     </button>
                     
                     <div className="mt-8 flex gap-4 justify-center">
@@ -66,10 +65,10 @@ const App = () => {
                     </div>
 
                      <button onClick={() => useStore.getState().startGame()} className="mt-8 bg-white/10 hover:bg-white/20 text-white font-bold px-6 py-2 rounded border border-white/50 block mx-auto">
-                        Forcer le démarrage (Debug)
+                        Force Start (Debug)
                     </button>
                     <button onClick={() => useStore.getState().leaveRoom()} className="mt-4 text-red-300 underline text-sm">
-                        Quitter
+                        Leave Room
                     </button>
                 </div>
              </div>

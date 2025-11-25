@@ -16,7 +16,6 @@ export const Lobby = () => {
          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-yellow-400 rounded-full blur-3xl opacity-10" />
       </div>
 
-      {/* Main Card */}
       <div className="max-w-md w-full bg-slate-800/80 backdrop-blur-lg p-8 rounded-3xl shadow-2xl border border-white/10 relative z-10">
         
         {/* Header */}
@@ -39,7 +38,7 @@ export const Lobby = () => {
         {/* Inputs */}
         <div className="space-y-6">
             <div>
-                <label className="block text-slate-400 text-sm font-semibold mb-2 ml-1">TON PSEUDO</label>
+                <label className="block text-slate-400 text-sm font-semibold mb-2 ml-1">YOUR NICKNAME</label>
                 <input 
                   type="text" 
                   value={nickname}
@@ -57,13 +56,13 @@ export const Lobby = () => {
                   className="group relative overflow-hidden w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                 >
                    {isConnecting ? <Loader2 className="animate-spin" /> : <Gamepad2 size={24} />}
-                   <span>CRÉER UNE PARTIE</span>
+                   <span>CREATE ROOM</span>
                 </button>
                 
                 {/* Separator */}
                 <div className="relative flex items-center py-2">
                     <div className="flex-grow border-t border-slate-700"></div>
-                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase">OU REJOINDRE AVEC UN CODE</span>
+                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase">OR JOIN WITH CODE</span>
                     <div className="flex-grow border-t border-slate-700"></div>
                 </div>
 
@@ -81,7 +80,7 @@ export const Lobby = () => {
                       disabled={isConnecting || !nickname.trim() || joinCode.length !== 5}
                       className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <span>REJOINDRE</span>
+                        <span>JOIN</span>
                         <ArrowRight size={20} />
                     </button>
                 </div>
