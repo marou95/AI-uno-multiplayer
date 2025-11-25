@@ -2,6 +2,20 @@ import { Room, Client, Delayed } from "colyseus";
 import { UNOState, Player, Card } from "./schema/UNOState";
 import { CardColor, CardType, GameStatus } from "../shared/types";
 
+// Augment Colyseus Room to fix missing type definitions in the environment
+declare module "colyseus" {
+  interface Room<T> {
+    roomId: string;
+    state: T;
+    setState(state: T): void;
+    setMetadata(meta: any): Promise<void>;
+    onMessage(type: string | number, callback: (client: any, message: any) => void): void;
+    broadcast(type: string | number, message?: any, options?: any): void;
+    allowReconnection(client: any, seconds: number): Promise<any>;
+    clock: any;
+  }
+}
+
 export class UNORoom extends Room<UNOState> {
   maxClients = 6;
   playerIndexes: string[] = [];

@@ -80,10 +80,10 @@ gameServer.define("uno", UNORoom)
 gameServer.listen(port);
 console.log(`✅ Server ready on port ${port}`);
 
-process.on('unhandledRejection', (reason) => {
+(process as any).on('unhandledRejection', (reason: any) => {
   console.error('❌ Unhandled Rejection:', reason);
 });
 
-process.on('uncaughtException', (error) => {
+(process as any).on('uncaughtException', (error: any) => {
   console.error('❌ Uncaught Exception:', error);
 });

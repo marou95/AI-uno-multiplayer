@@ -29,7 +29,7 @@ export class UNOState extends Schema {
   @type("string") currentType: string = "";
   @type("number") currentValue: number = -1;
   @type("number") drawStack: number = 0;
-  @type("string") status: string = "LOBBY"; 
+  @type("string") status: string = "lobby"; 
   @type("string") winner: string = "";
   @type("string") pendingUnoPenaltyPlayerId: string = "";
 
