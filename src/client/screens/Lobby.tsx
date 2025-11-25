@@ -5,13 +5,13 @@ import { Player } from '../../server/schema/UNOState';
 import { playSound } from '../utils/sounds';
 
 export const Lobby = () => {
-  // On utilise _tick pour garantir le rafraîchissement suite aux changements d'état
+  // On utilise _tick pour garantir le rafraîchissement
   const { gameState, playerId, toggleReady, startGame, leaveRoom, _tick } = useStore();
   const [copied, setCopied] = useState(false);
 
-  // --- Écran de Chargement/Sécurité ---
-  // On n'affiche rien de concret tant que l'état n'est pas là, y compris l'objet players.
-  if (!gameState || !gameState.players) {
+  // --- Sécurité Anti-Crash ---
+  if (!gameState || !gameState.players || !gameState.players.get) {
+      // Si la MapSchema n'est pas encore fonctionnelle, on affiche un loader
       return (
           <div className="min-h-screen w-full bg-slate-900 flex items-center justify-center text-white flex-col gap-4">
               <Loader2 className="animate-spin text-yellow-500" size={48} />
@@ -20,14 +20,12 @@ export const Lobby = () => {
       );
   }
 
-  // --- Données et Logique ---
-  // Utilisation de .values() pour transformer la MapSchema en Array JavaScript
+  // Accès sécurisé aux données
   const players = Array.from(gameState.players.values()) as Player[];
   
-  // Accès sécurisé au joueur local
+  // Accès sécurisé au joueur local, avec un fallback si get() ne trouve rien
   const me = gameState.players.get(playerId || "") || ({ isReady: false, name: "..." } as Player);
   
-  // Logique du Host (le premier joueur dans la liste players)
   const isHost = players[0]?.id === playerId;
   const canStart = isHost && players.length >= 2 && players.every(p => p.isReady);
 

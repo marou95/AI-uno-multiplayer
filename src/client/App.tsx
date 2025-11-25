@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { Lobby } from './screens/Lobby';
 import { GameBoard } from './screens/GameBoard';
@@ -9,9 +9,15 @@ import { playSound } from './utils/sounds';
 import { Loader2, Gamepad2, ArrowRight } from 'lucide-react';
 
 const App = () => {
-  const { room, gameState, nickname, setNickname, createRoom, joinRoom, error, notifications, isConnecting } = useStore();
-  const [code, setCode] = React.useState('');
+  // On récupère uniquement les fonctions et les variables d'entrée/connexion
+  const { room, nickname, setNickname, createRoom, joinRoom, error, notifications, isConnecting } = useStore();
+  
+  // On récupère l'état pour le rendu du Lobby/Game
+  // On utilise un sélecteur dans le hook pour optimiser les re-renders
+  const { gameState, _tick } = useStore((state) => ({ gameState: state.gameState, _tick: state._tick }));
 
+  const [code, setCode] = useState('');
+  
   // 1. Gestion des Notifications (Toujours visible)
   const renderNotifications = () => (
     <div className="fixed top-20 right-4 flex flex-col gap-2 z-[100] pointer-events-none">
@@ -22,7 +28,7 @@ const App = () => {
              initial={{ opacity: 0, x: 20 }}
              animate={{ opacity: 1, x: 0 }}
              exit={{ opacity: 0 }}
-             className="bg-slate-800/90 backdrop-blur text-white px-6 py-3 rounded-xl shadow-2xl border border-white/10 font-semibold text-sm border-l-4 border-l-yellow-400"
+             className="bg-slate-800/90 backdrop-blur text-white px-6 py-3 rounded-xl shadow-2xl border border-white/10 font-semibold text-sm border-l-4 border-l-yellow-400 max-w-xs break-words"
            >
              {note}
            </motion.div>
@@ -62,7 +68,7 @@ const App = () => {
                   onChange={(e) => setNickname(e.target.value)}
                   placeholder="Ex: Maverick"
                   disabled={isConnecting}
-                  className="w-full bg-slate-900/50 text-white p-4 rounded-xl border border-slate-700 focus:border-yellow-500 focus:ring-1 focus:outline-none font-bold text-lg disabled:opacity-50"
+                  className="w-full bg-slate-900/50 text-white p-4 rounded-xl border border-slate-700 focus:border-yellow-500 focus:ring-1 focus:outline-none font-bold text-lg disabled:opacity-50 transition-all placeholder:text-slate-600"
                />
              </div>
              
@@ -89,7 +95,7 @@ const App = () => {
                       placeholder="CODE"
                       maxLength={5}
                       disabled={isConnecting}
-                      className="w-28 h-full bg-slate-900/50 text-center font-mono font-black text-xl text-white rounded-xl border border-slate-700 focus:border-blue-500 focus:outline-none uppercase disabled:opacity-50"
+                      className="w-28 h-full bg-slate-900/50 text-center font-mono font-black text-xl text-white rounded-xl border border-slate-700 focus:border-blue-500 focus:outline-none uppercase disabled:opacity-50 placeholder:text-slate-600 placeholder:text-base placeholder:font-sans"
                    />
                    <button 
                       onClick={() => { playSound('click'); joinRoom(code); }}
@@ -113,7 +119,7 @@ const App = () => {
     );
   }
 
-  // 3. CAS : Room existe mais pas encore de GameState = CHARGEMENT
+  // 3. CAS : Room existe mais pas encore de GameState = CHARGEMENT (Sécurité)
   if (!gameState) {
      return (
         <div className="min-h-screen w-full bg-slate-900 flex flex-col items-center justify-center text-white">
@@ -123,7 +129,7 @@ const App = () => {
      );
   }
 
-  // 4. CAS : En Jeu ou Lobby
+  // 4. CAS : En Jeu ou Lobby (Rendu final)
   return (
     <>
       <SoundToggle />
