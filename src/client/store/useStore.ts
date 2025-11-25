@@ -129,12 +129,14 @@ export const useStore = create<StoreState>((set, get) => ({
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
     set({ room, playerId: room.sessionId, error: null });
     
-    room.onStateChange.once((state) => {
-      set({ gameState: state as any });
-    });
+    // Initial State
+    set({ gameState: room.state });
 
+    // Update on change
     room.onStateChange((state) => {
-      set({ gameState: state as any });
+      // Force update en créant une nouvelle référence (shallow copy) pour que React réagisse
+      // Note: Colyseus mute l'objet state, donc {...state} aide React à voir le changement
+      set({ gameState: { ...state } as UNOState });
     });
 
     room.onMessage("notification", (msg) => get().addNotification(msg));
