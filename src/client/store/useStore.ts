@@ -6,21 +6,18 @@ import { UNOState } from '../../server/schema/UNOState';
 
 // We augment the existing ImportMetaEnv from vite/client
 // We do NOT redeclare PROD or the index signature to avoid conflicts
-declare global {
-  interface ImportMetaEnv {
-    readonly VITE_SERVER_URL: string;
-  }
-}
+// We cast import.meta.env to any in the code to bypass strict type checks if needed
 
 const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 
 const getBackendUrl = () => {
-  if (import.meta.env.VITE_SERVER_URL) {
-    console.log('Using VITE_SERVER_URL:', import.meta.env.VITE_SERVER_URL);
-    return import.meta.env.VITE_SERVER_URL;
+  const env = import.meta.env as any;
+  if (env.VITE_SERVER_URL) {
+    console.log('Using VITE_SERVER_URL:', env.VITE_SERVER_URL);
+    return env.VITE_SERVER_URL;
   }
   
-  if (import.meta.env.PROD) {
+  if (env.PROD) {
     console.log('Production mode, using Railway');
     return RAILWAY_BACKEND;
   }
@@ -84,9 +81,11 @@ export const useStore = create<StoreState>((set, get) => ({
       const nickname = store.nickname.trim();
       if (!nickname) throw new Error("Please enter a nickname");
 
-      console.log(`🎮 Creating room on ${SERVER_URL}...`);
+      console.log(`🎮 Creating NEW room on ${SERVER_URL}...`);
       
-      const room = await store.client.joinOrCreate("uno", { name: nickname }) as Colyseus.Room<UNOState>;
+      // CRITICAL CHANGE: Use .create() instead of .joinOrCreate()
+      // This forces the server to instantiate a fresh room every time.
+      const room = await store.client.create("uno", { name: nickname }) as Colyseus.Room<UNOState>;
       
       console.log("✅ Room Created:", room.roomId);
       store._setupRoom(room);
@@ -118,7 +117,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
       console.log(`🎮 Joining room ${roomCode}...`);
       
-      const room = await store.client.join("uno", { name: nickname, code: roomCode }) as Colyseus.Room<UNOState>;
+      // CRITICAL CHANGE: The option key MUST be 'roomCode' to match 
+      // the server's .filterBy(['roomCode'])
+      const room = await store.client.join("uno", { name: nickname, roomCode: roomCode }) as Colyseus.Room<UNOState>;
       
       console.log("✅ Joined room:", room.roomId);
       store._setupRoom(room);
@@ -126,7 +127,12 @@ export const useStore = create<StoreState>((set, get) => ({
       
     } catch (e: any) {
       console.error("❌ Join error:", e);
-      set({ error: e.message || "Could not join room", isConnecting: false });
+      // Colyseus throws "MatchMakeError" if room not found
+      let msg = e.message || "Could not join room";
+      if (msg.includes("no available handler")) msg = "Room not found or full";
+      
+      set({ error: msg, isConnecting: false });
+      get().addNotification("⚠️ " + msg);
     }
   },
 
@@ -158,7 +164,6 @@ export const useStore = create<StoreState>((set, get) => ({
     room.onLeave((code) => {
       console.log('👋 Connection Closed. Code:', code);
       if (code === 4000) {
-          // 4000 is a generic "Bad Data" or "Logic Error" close from server
           set({ room: null, gameState: null, playerId: null, isConnecting: false, error: "Server Error (4000) - Please Refresh" });
           get().addNotification("❌ Connection Lost (4000)");
       } else if (code !== 1000) {
