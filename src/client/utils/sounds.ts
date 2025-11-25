@@ -1,22 +1,100 @@
-import { Howl } from 'howler';
+// Gestionnaire de sons Singleton
+class SoundManager {
+  private music: HTMLAudioElement | null = null;
+  private sounds: Map<string, HTMLAudioElement[]> = new Map();
+  
+  // États
+  public isMuted: boolean = localStorage.getItem('uno_muted') === 'true';
+  public volume: number = 0.5;
 
-// In a real project, these would point to actual assets in /public
-// For this demo, we use placeholders or simple beeps if files missing.
-// You can download generic free SFX and place them in /public/sounds/
+  // Banque de sons (URLs CDN pour tester directement)
+  private sources = {
+    // SFX
+    hover: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+    click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
+    play: 'https://assets.mixkit.co/active_storage/sfx/209/209-preview.mp3',
+    draw: 'https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3', // bruit de papier
+    uno: 'https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3', // alerte
+    win: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3', // victoire
+    lose: 'https://assets.mixkit.co/active_storage/sfx/2955/2955-preview.mp3', // défaite
+    join: 'https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3',
+    error: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3',
+    
+    // Musiques (Boucles)
+    bgm_lobby: 'https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3', // Chill Jazz
+    bgm_game: 'https://cdn.pixabay.com/download/audio/2022/03/24/audio_349d445474.mp3'  // Funky Gaming
+  };
 
-const sounds = {
-  play: new Howl({ src: ['/sounds/play.mp3'], volume: 0.5 }),
-  draw: new Howl({ src: ['/sounds/draw.mp3'], volume: 0.5 }),
-  uno: new Howl({ src: ['/sounds/uno.mp3'], volume: 0.8 }),
-  win: new Howl({ src: ['/sounds/win.mp3'], volume: 0.8 }),
-  turn: new Howl({ src: ['/sounds/turn.mp3'], volume: 0.4 }),
-  error: new Howl({ src: ['/sounds/error.mp3'], volume: 0.3 })
-};
-
-export const playSound = (key: keyof typeof sounds) => {
-  try {
-    sounds[key].play();
-  } catch (e) {
-    console.warn("Sound play failed", e);
+  constructor() {
+    // Précharger les SFX (créer un pool de 3 instances par son pour éviter les coupures)
+    Object.entries(this.sources).forEach(([key, src]) => {
+      if (key.startsWith('bgm_')) return; // On ne précharge pas les musiques en pool
+      
+      const pool: HTMLAudioElement[] = [];
+      for(let i=0; i<3; i++) {
+        const audio = new Audio(src);
+        audio.volume = this.volume;
+        pool.push(audio);
+      }
+      this.sounds.set(key, pool);
+    });
   }
-};
+
+  play(key: string) {
+    if (this.isMuted) return;
+
+    // Gestion des SFX
+    if (this.sounds.has(key)) {
+      const pool = this.sounds.get(key);
+      const audio = pool?.find(a => a.paused) || pool?.[0]; // Trouver un libre ou prendre le premier
+      if (audio) {
+        audio.currentTime = 0;
+        audio.volume = this.volume;
+        audio.play().catch(() => {}); // Ignorer erreur autoplay
+      }
+      return;
+    }
+  }
+
+  playMusic(key: 'bgm_lobby' | 'bgm_game') {
+    if (this.isMuted) return;
+    
+    // Si la même musique joue déjà, on ne fait rien
+    if (this.music && this.music.src === this.sources[key] && !this.music.paused) return;
+
+    this.stopMusic();
+
+    const src = this.sources[key];
+    this.music = new Audio(src);
+    this.music.loop = true; // Boucle infinie
+    this.music.volume = this.volume * 0.6; // La musique un peu moins forte que les SFX
+    
+    // Fade in
+    this.music.play().catch(e => console.log("Autoplay bloqué par le navigateur, interaction requise"));
+  }
+
+  stopMusic() {
+    if (this.music) {
+      this.music.pause();
+      this.music = null;
+    }
+  }
+
+  toggleMute() {
+    this.isMuted = !this.isMuted;
+    localStorage.setItem('uno_muted', String(this.isMuted));
+    
+    if (this.isMuted) {
+      this.stopMusic();
+    } else {
+      // Si on demute, on ne relance pas la musique automatiquement ici, 
+      // elle sera relancée par le composant UI ou le contexte
+    }
+    return this.isMuted;
+  }
+}
+
+export const audioManager = new SoundManager();
+
+// Helper simple pour compatibilité avec votre code existant
+export const playSound = (key: string) => audioManager.play(key);

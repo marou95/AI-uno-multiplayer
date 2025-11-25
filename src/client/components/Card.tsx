@@ -1,85 +1,96 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { ICard, CardColor, CardType } from '../../shared/types';
+import { Card as CardSchema } from '../../server/schema/UNOState';
 import clsx from 'clsx';
-import { Ban, RefreshCcw, CopyPlus, Diamond } from 'lucide-react';
+import { Ban, RefreshCcw, Layers } from 'lucide-react';
+import { playSound } from '../utils/sounds'; // <--- 1. Import du gestionnaire de sons
 
 interface CardProps {
-  card: ICard;
-  onClick?: () => void;
+  card: CardSchema;
   playable?: boolean;
-  hidden?: boolean; // For opponents' cards
-  small?: boolean;
+  onClick?: () => void;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-const colorMap: Record<string, string> = {
+const cardColors: Record<string, string> = {
   red: 'bg-red-500',
   blue: 'bg-blue-500',
   green: 'bg-green-500',
   yellow: 'bg-yellow-400',
-  black: 'bg-slate-900',
+  black: 'bg-slate-800'
 };
 
-export const Card: React.FC<CardProps> = ({ card, onClick, playable, hidden, small }) => {
-  if (hidden) {
-    return (
-      <motion.div
-        layout
-        className={clsx(
-          "rounded-lg border-2 border-white shadow-md bg-slate-800 flex items-center justify-center relative",
-          small ? "w-8 h-12" : "w-16 h-24 md:w-24 md:h-36"
-        )}
-      >
-        <div className="w-full h-full bg-red-600 rounded-md m-1 flex items-center justify-center">
-             <span className="font-bold text-white text-xs italic opacity-50">UNO</span>
-        </div>
-      </motion.div>
-    );
-  }
+const textColors: Record<string, string> = {
+  red: 'text-red-500',
+  blue: 'text-blue-500',
+  green: 'text-green-500',
+  yellow: 'text-yellow-400',
+  black: 'text-white'
+};
 
-  const baseClasses = clsx(
-    "rounded-xl shadow-lg relative select-none flex flex-col items-center justify-center border-4 border-white",
-    colorMap[card.color] || 'bg-gray-500',
-    small ? "w-10 h-14 text-sm" : "w-20 h-32 md:w-28 md:h-44",
-    playable ? "cursor-pointer hover:-translate-y-4 hover:shadow-2xl ring-4 ring-green-400" : "opacity-90",
-    !playable && onClick && "cursor-not-allowed opacity-50 grayscale-[0.5]"
-  );
+export const Card: React.FC<CardProps> = ({ card, playable, onClick, className, style }) => {
+  const isNumber = card.type === 'number';
+  const colorClass = cardColors[card.color] || 'bg-slate-700';
 
+  // Icône centrale selon le type
   const renderContent = () => {
-     switch(card.type) {
-         case 'skip': return <Ban size={small ? 16 : 32} strokeWidth={3} />;
-         case 'reverse': return <RefreshCcw size={small ? 16 : 32} strokeWidth={3} />;
-         case 'draw2': return <div className="flex"><CopyPlus size={small ? 16 : 32} /> <span className="font-black text-xl">+2</span></div>;
-         case 'wild': return <Diamond size={small ? 24 : 48} className="text-white fill-current" />;
-         case 'wild4': return <div className="flex flex-col items-center"><Diamond size={small ? 20 : 36} /><span className="font-black text-lg">+4</span></div>;
-         default: return <span className={clsx("font-black text-white italic drop-shadow-md", small ? "text-2xl" : "text-6xl")}>{card.value}</span>;
-     }
+    if (isNumber) return <span className="text-6xl font-black italic shadow-black drop-shadow-md">{card.value}</span>;
+    if (card.type === 'skip') return <Ban size={48} className="drop-shadow-md" />;
+    if (card.type === 'reverse') return <RefreshCcw size={48} className="drop-shadow-md" />;
+    if (card.type === 'draw2') return <div className="flex flex-col items-center font-black text-4xl italic drop-shadow-md"><span>+2</span><Layers size={24}/></div>;
+    if (card.type === 'wild') return <div className="text-4xl font-black italic bg-gradient-to-br from-red-500 via-yellow-400 to-blue-500 text-transparent bg-clip-text">WILD</div>;
+    if (card.type === 'wild4') return <div className="flex flex-col items-center font-black text-3xl italic bg-gradient-to-br from-red-500 via-yellow-400 to-blue-500 text-transparent bg-clip-text"><span>+4</span><span className="text-sm text-white">WILD</span></div>;
+    return null;
+  };
+
+  // Petit symbole dans les coins
+  const renderCorner = () => {
+     if (isNumber) return card.value;
+     if (card.type === 'skip') return <Ban size={16} />;
+     if (card.type === 'reverse') return <RefreshCcw size={16} />;
+     if (card.type === 'draw2') return '+2';
+     if (card.type === 'wild') return 'W';
+     if (card.type === 'wild4') return '+4';
+     return '';
   };
 
   return (
-    <motion.div
-      layoutId={card.id}
-      whileTap={playable ? { scale: 0.95 } : {}}
-      className={baseClasses}
+    <div 
       onClick={playable ? onClick : undefined}
+      onMouseEnter={() => playable && playSound('hover')} // <--- 2. Son "pop" uniquement si la carte est jouable ou interactive
+      className={clsx(
+        "w-24 h-36 md:w-32 md:h-48 rounded-xl relative select-none transition-all duration-200 shadow-xl border-4",
+        colorClass,
+        playable ? "cursor-pointer hover:scale-105 hover:-translate-y-4 ring-4 ring-white/50 hover:ring-white hover:shadow-2xl z-10" : "opacity-100 border-white/10",
+        "border-white",
+        className
+      )}
+      style={style}
     >
-      {/* Top Left Icon */}
-      <div className="absolute top-1 left-2 text-white text-opacity-80 font-bold text-xs md:text-sm">
-        {card.type === 'number' ? card.value : card.type.substr(0,1).toUpperCase()}
-      </div>
-      
-      {/* Center Content */}
-      <div className="text-white drop-shadow-md">
-        {renderContent()}
+      {/* Design intérieur de la carte (Ellipse blanche) */}
+      <div className="absolute inset-2 border-2 border-white/20 rounded-lg flex items-center justify-center overflow-hidden">
+         <div className="absolute inset-0 bg-gradient-to-br from-black/0 to-black/20" />
+         
+         {/* Ovale central blanc */}
+         <div className="w-full h-[80%] bg-white transform -skew-x-12 flex items-center justify-center text-slate-900 shadow-inner relative z-0">
+             <div className={clsx("transform skew-x-12", isNumber ? textColors[card.color] : "text-slate-900")}>
+                {renderContent()}
+             </div>
+         </div>
+
+         {/* Coins */}
+         <div className="absolute top-1 left-1 text-white font-bold drop-shadow-md text-lg leading-none">
+            {renderCorner()}
+         </div>
+         <div className="absolute bottom-1 right-1 text-white font-bold drop-shadow-md text-lg leading-none rotate-180">
+            {renderCorner()}
+         </div>
       </div>
 
-      {/* Bottom Right Inverted */}
-      <div className="absolute bottom-1 right-2 text-white text-opacity-80 font-bold text-xs md:text-sm rotate-180">
-        {card.type === 'number' ? card.value : card.type.substr(0,1).toUpperCase()}
-      </div>
-      
-      {/* Center Ellipse Overlay for UNO style */}
-      <div className="absolute w-full h-full opacity-10 bg-white rounded-full scale-x-[0.6] rotate-45 pointer-events-none" />
-    </motion.div>
+      {/* Overlay "Non jouable" (Optionnel : assombrit si ce n'est pas votre tour) */}
+      {!playable && onClick && (
+        <div className="absolute inset-0 bg-black/10 rounded-xl" />
+      )}
+    </div>
   );
 };

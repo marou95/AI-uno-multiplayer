@@ -157,7 +157,7 @@ export const GameBoard = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-8 z-10">
         
         {/* Pioche */}
-        <div className="relative cursor-pointer group" onClick={() => { if(isMyTurn) { drawCard(); playSound('draw'); } }}>
+        <div className="relative cursor-pointer group" onClick={() => { if(isMyTurn) { drawCard(); playSound('draw'); } }} onMouseEnter={() => playSound('hover')}>
           <div className="w-24 h-36 md:w-32 md:h-48 bg-slate-900 rounded-xl border-4 border-white shadow-xl flex items-center justify-center group-hover:scale-105 transition-transform">
             <span className="text-red-500 font-bold text-3xl italic">UNO</span>
           </div>
@@ -257,7 +257,7 @@ export const GameBoard = () => {
           {/* Cartes */}
           <div className="flex items-end justify-center -space-x-8 md:-space-x-12 hover:space-x-0 transition-all duration-300 w-full overflow-x-auto p-4 scrollbar-hide h-full">
             {me?.hand.map((card, i) => (
-              <div key={card.id} className="relative transition-transform duration-200 hover:z-50 hover:-translate-y-6 origin-bottom" style={{ zIndex: i }}>
+              <div key={card.id} className="relative transition-transform duration-200 hover:z-50 hover:-translate-y-6 origin-bottom" style={{ zIndex: i }} onMouseEnter={() => playSound('hover')}>
                 <Card 
                   card={card} 
                   playable={isMyTurn && (
