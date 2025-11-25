@@ -9,16 +9,10 @@ import { playSound } from './utils/sounds';
 import { Loader2, Gamepad2, ArrowRight } from 'lucide-react';
 
 const App = () => {
-  // On récupère uniquement les fonctions et les variables d'entrée/connexion
-  const { room, nickname, setNickname, createRoom, joinRoom, error, notifications, isConnecting } = useStore();
-  
-  // On récupère l'état pour le rendu du Lobby/Game
-  // On utilise un sélecteur dans le hook pour optimiser les re-renders
-  const { gameState, _tick } = useStore((state) => ({ gameState: state.gameState, _tick: state._tick }));
-
+  const { room, nickname, setNickname, createRoom, joinRoom, error, notifications, isConnecting, gameState } = useStore();
   const [code, setCode] = useState('');
   
-  // 1. Gestion des Notifications (Toujours visible)
+  // Gestion des Notifications (Toujours visible)
   const renderNotifications = () => (
     <div className="fixed top-20 right-4 flex flex-col gap-2 z-[100] pointer-events-none">
       <AnimatePresence>
@@ -37,7 +31,7 @@ const App = () => {
     </div>
   );
 
-  // 2. CAS : Pas de Room = Écran d'Accueil (HOME)
+  // CAS 1: Pas de Room = Écran d'Accueil (HOME)
   if (!room) {
     return (
       <div className="min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
@@ -119,22 +113,27 @@ const App = () => {
     );
   }
 
-  // 3. CAS : Room existe mais pas encore de GameState = CHARGEMENT (Sécurité)
+  // CAS 2: Room existe mais pas encore de GameState = CHARGEMENT
   if (!gameState) {
      return (
         <div className="min-h-screen w-full bg-slate-900 flex flex-col items-center justify-center text-white">
+            <SoundToggle />
+            {renderNotifications()}
             <Loader2 size={48} className="animate-spin text-yellow-500 mb-4" />
             <h2 className="text-xl font-bold animate-pulse">Connecting to Lobby...</h2>
         </div>
      );
   }
 
-  // 4. CAS : En Jeu ou Lobby (Rendu final)
+  // CAS 3: Affichage selon le statut de la partie
+  // CORRECTIF : On vérifie explicitement si status === 'lobby' (en minuscule)
+  const isInLobby = gameState.status === 'lobby' || gameState.status === GameStatus.LOBBY;
+
   return (
     <>
       <SoundToggle />
       {renderNotifications()}
-      {gameState.status === GameStatus.LOBBY ? <Lobby /> : <GameBoard />}
+      {isInLobby ? <Lobby /> : <GameBoard />}
     </>
   );
 };
