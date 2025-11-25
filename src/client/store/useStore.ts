@@ -1,20 +1,26 @@
+/// <reference types="vite/client" />
 
 import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
 
+// We augment the existing ImportMetaEnv from vite/client
+// We do NOT redeclare PROD or the index signature to avoid conflicts
+declare global {
+  interface ImportMetaEnv {
+    readonly VITE_SERVER_URL: string;
+  }
+}
+
 const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 
 const getBackendUrl = () => {
-  const meta = import.meta as any;
-  const env = meta.env || {};
-  
-  if (env.VITE_SERVER_URL) {
-    console.log('Using VITE_SERVER_URL:', env.VITE_SERVER_URL);
-    return env.VITE_SERVER_URL;
+  if (import.meta.env.VITE_SERVER_URL) {
+    console.log('Using VITE_SERVER_URL:', import.meta.env.VITE_SERVER_URL);
+    return import.meta.env.VITE_SERVER_URL;
   }
   
-  if (env.PROD) {
+  if (import.meta.env.PROD) {
     console.log('Production mode, using Railway');
     return RAILWAY_BACKEND;
   }
@@ -78,11 +84,9 @@ export const useStore = create<StoreState>((set, get) => ({
       const nickname = store.nickname.trim();
       if (!nickname) throw new Error("Please enter a nickname");
 
-      console.log(`🎮 Creating NEW room on ${SERVER_URL}...`);
+      console.log(`🎮 Creating room on ${SERVER_URL}...`);
       
-      // Explicitly CREATE a room. 
-      // Do NOT pass roomCode here. This ensures filterBy doesn't block creation.
-      const room = await store.client.create("uno", { name: nickname }) as Colyseus.Room<UNOState>;
+      const room = await store.client.joinOrCreate("uno", { name: nickname }) as Colyseus.Room<UNOState>;
       
       console.log("✅ Room Created:", room.roomId);
       store._setupRoom(room);
@@ -90,8 +94,12 @@ export const useStore = create<StoreState>((set, get) => ({
       
     } catch (e: any) {
       console.error("❌ Create error:", e);
-      set({ error: e.message || "Failed to create room", isConnecting: false });
-      get().addNotification("❌ " + (e.message || "Failed to create room"));
+      let errorMessage = "Failed to create room";
+      if (e.message?.includes('4000')) errorMessage = "Server error (4000) - Try again";
+      else if (e.message) errorMessage = e.message;
+      
+      set({ error: errorMessage, isConnecting: false });
+      get().addNotification("❌ " + errorMessage);
     }
   },
 
@@ -108,11 +116,9 @@ export const useStore = create<StoreState>((set, get) => ({
       if (!nickname) throw new Error("Please enter a nickname");
       if (roomCode.length !== 5) throw new Error("Code must be 5 letters");
 
-      console.log(`🎮 Joining room with code ${roomCode}...`);
+      console.log(`🎮 Joining room ${roomCode}...`);
       
-      // Explicitly JOIN with roomCode option. 
-      // Server 'filterBy(['roomCode'])' will match this.
-      const room = await store.client.join("uno", { name: nickname, roomCode: roomCode }) as Colyseus.Room<UNOState>;
+      const room = await store.client.join("uno", { name: nickname, code: roomCode }) as Colyseus.Room<UNOState>;
       
       console.log("✅ Joined room:", room.roomId);
       store._setupRoom(room);
@@ -120,9 +126,7 @@ export const useStore = create<StoreState>((set, get) => ({
       
     } catch (e: any) {
       console.error("❌ Join error:", e);
-      let msg = e.message || "Could not join room";
-      if (msg.includes("seat reservation")) msg = "Room not found or full";
-      set({ error: msg, isConnecting: false });
+      set({ error: e.message || "Could not join room", isConnecting: false });
     }
   },
 
@@ -153,12 +157,14 @@ export const useStore = create<StoreState>((set, get) => ({
     
     room.onLeave((code) => {
       console.log('👋 Connection Closed. Code:', code);
-      if (code !== 1000) {
-        // Unexpected disconnect
-        set({ room: null, gameState: null, playerId: null, isConnecting: false, error: `Disconnected (Code: ${code})` });
+      if (code === 4000) {
+          // 4000 is a generic "Bad Data" or "Logic Error" close from server
+          set({ room: null, gameState: null, playerId: null, isConnecting: false, error: "Server Error (4000) - Please Refresh" });
+          get().addNotification("❌ Connection Lost (4000)");
+      } else if (code !== 1000) {
+        set({ room: null, gameState: null, playerId: null, isConnecting: false, error: `Disconnected (${code})` });
         get().addNotification(`⚠️ Disconnected (${code})`);
       } else {
-        // Normal leave
         set({ room: null, gameState: null, playerId: null, isConnecting: false });
       }
     });

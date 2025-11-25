@@ -1,4 +1,3 @@
-
 import express from "express";
 import http from "http";
 import { Server } from "colyseus";
@@ -22,7 +21,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 }));
 
-// Cast to any to avoid TS overload mismatch, common with express types mismatch
 app.use(express.json() as any);
 
 app.use('/matchmake/*', (req, res, next) => {
@@ -43,15 +41,18 @@ const server = http.createServer(app);
 
 const gameServer = new Server({
   transport: new WebSocketTransport({
-    server: server
+    server: server,
+    // Disable ping interval to prevent premature disconnects on some proxies
+    // The client can handle its own keep-alive if needed, or we rely on TCP
+    pingInterval: 0, 
+    verifyClient: (info, next) => {
+      // Allow all connections
+      next(true);
+    }
   }),
 });
 
-// Register room with filterBy to ensure 'join' only finds rooms by exact roomCode
-gameServer
-  .define("uno", UNORoom)
-  .filterBy(['roomCode'])
-  .enableRealtimeListing();
+gameServer.define("uno", UNORoom).enableRealtimeListing();
 
 gameServer.listen(port);
 console.log(`✅ Server ready on port ${port}`);
