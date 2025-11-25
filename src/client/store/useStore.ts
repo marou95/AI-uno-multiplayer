@@ -27,6 +27,7 @@ interface StoreState {
   error: string | null;
   notifications: string[];
   isConnecting: boolean;
+  _tick: number; // Sert à forcer le re-render React
   
   setNickname: (name: string) => void;
   createRoom: () => Promise<void>;
@@ -52,6 +53,7 @@ export const useStore = create<StoreState>((set, get) => ({
   error: null,
   notifications: [],
   isConnecting: false,
+  _tick: 0,
 
   setNickname: (name) => {
     localStorage.setItem('uno_nickname', name);
@@ -134,13 +136,13 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // Update on change
     room.onStateChange((state) => {
-      // --- CORRECTIF DÉFINITIF ---
-      // On crée une VRAIE instance (pour avoir le prototype) et on copie les props.
-      // C'est plus sûr que Object.create() pour les MapSchema.
-      const newState = new UNOState();
-      Object.assign(newState, state);
-      
-      set({ gameState: newState });
+      // --- CORRECTIF FINAL ---
+      // On ne touche plus à l'objet state (pour garder .get()).
+      // On incrémente juste _tick pour dire à React "quelque chose a changé, redessine !"
+      set((prev) => ({ 
+          gameState: state, 
+          _tick: prev._tick + 1 
+      }));
     });
 
     room.onMessage("notification", (msg) => get().addNotification(msg));

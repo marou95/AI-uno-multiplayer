@@ -5,11 +5,12 @@ import { Player } from '../../server/schema/UNOState';
 import { playSound } from '../utils/sounds';
 
 export const Lobby = () => {
-  const { gameState, playerId, toggleReady, startGame, leaveRoom } = useStore();
+  // On récupère _tick pour que ce composant se rafraichisse quand le store change
+  const { gameState, playerId, toggleReady, startGame, leaveRoom, _tick } = useStore();
   const [copied, setCopied] = useState(false);
 
-  // --- SÉCURITÉ CRASH ---
-  // On vérifie gameState ET gameState.players avant tout accès.
+  // Protection stricte : on attend que les joueurs soient là
+  // Le ?. évite le crash si players n'est pas encore défini
   if (!gameState || !gameState.players) {
       return (
           <div className="min-h-screen w-full bg-slate-900 flex items-center justify-center text-white flex-col gap-4">
@@ -20,8 +21,10 @@ export const Lobby = () => {
   }
 
   const players = Array.from(gameState.players.values()) as Player[];
-  // Protection supplémentaire lors de l'accès au joueur courant
-  const me = gameState.players.get(playerId || "") || ({ isReady: false, name: "..." } as Player);
+  
+  // Utilisation sécurisée de .get()
+  // Si .get n'existe pas (impossible avec le correctif store) ou retourne undefined, on fallback
+  const me = (gameState.players.get && gameState.players.get(playerId || "")) || ({ isReady: false, name: "..." } as Player);
   
   const isHost = players.length > 0 && playerId ? players[0]?.id === playerId : false;
   const canStart = isHost && players.length >= 2 && players.every(p => p.isReady);
@@ -111,7 +114,6 @@ export const Lobby = () => {
               </div>
             ))}
             
-            {/* Empty Slots */}
             {Array.from({ length: Math.max(0, 6 - players.length) }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 bg-slate-800/30 p-2 md:p-3 rounded-xl border border-white/5 border-dashed opacity-50">
                     <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-600">
