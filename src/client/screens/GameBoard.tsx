@@ -202,7 +202,7 @@ export const GameBoard = () => {
       <div className="flex-none w-full px-2 pb-2 md:pb-6 relative z-30">
         
         {/* Bouton UNO Flottant */}
-        {me && me.hand.length === 2 && !me.hasSaidUno && (
+        {me && me.hand.length === 1 && !me.hasSaidUno && (
             <button 
               onClick={() => { sayUno(); playSound('uno'); }} 
               className="absolute -top-20 right-4 md:right-20 bg-gradient-to-br from-yellow-400 to-yellow-600 text-red-900 font-black text-lg md:text-2xl w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-white shadow-[0_0_30px_rgba(250,204,21,0.6)] animate-bounce z-40 hover:scale-110 active:scale-95 flex items-center justify-center transform hover:rotate-12 transition-transform"
