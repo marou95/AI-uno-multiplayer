@@ -7,6 +7,7 @@ import { playSound } from '../utils/sounds';
 import confetti from 'canvas-confetti';
 import { Player } from '../../server/schema/UNOState';
 import clsx from 'clsx';
+import { Siren } from 'lucide-react';
 
 const bgColors: Record<string, string> = {
   red: 'bg-red-500',
@@ -17,7 +18,7 @@ const bgColors: Record<string, string> = {
 };
 
 export const GameBoard = () => {
-  const { gameState, playerId, playCard, drawCard, sayUno, leaveRoom } = useStore();
+  const { gameState, playerId, playCard, drawCard, sayUno, catchUno, leaveRoom } = useStore();
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
 
   if (!gameState || !playerId) return null;
@@ -31,6 +32,11 @@ export const GameBoard = () => {
 
   const isMyTurn = gameState.currentTurnPlayerId === playerId;
   const topCard = gameState.discardPile[gameState.discardPile.length - 1];
+
+  // Logic for Catch UNO button
+  const pendingUnoPlayerId = gameState.pendingUnoPenaltyPlayerId;
+  const showCatchButton = pendingUnoPlayerId && pendingUnoPlayerId !== playerId;
+  const culpritName = pendingUnoPlayerId ? gameState.players.get(pendingUnoPlayerId)?.name : '';
 
   useEffect(() => {
     if (gameState.winner) {
@@ -89,6 +95,22 @@ export const GameBoard = () => {
             <div className="w-96 h-96 border-[20px] border-white rounded-full border-dashed animate-spin-slow" style={{ animationDuration: '20s' }} />
          </motion.div>
       </div>
+
+      {/* CATCH BUTTON OVERLAY */}
+      <AnimatePresence>
+        {showCatchButton && (
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            onClick={() => { catchUno(); playSound('uno'); }}
+            className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white font-black text-2xl px-8 py-4 rounded-full border-4 border-white shadow-2xl animate-pulse flex items-center gap-3 hover:scale-110 transition active:bg-red-700"
+          >
+            <Siren size={32} className="animate-spin" />
+            CATCH {culpritName}!
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Center Table (Discard + Draw) */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-8 z-10">
@@ -179,6 +201,13 @@ export const GameBoard = () => {
              <button onClick={() => { sayUno(); playSound('uno'); }} className="absolute -top-20 right-10 md:right-32 bg-yellow-500 text-red-600 font-black text-2xl w-20 h-20 rounded-full border-4 border-red-600 shadow-xl animate-bounce z-40 hover:scale-110 active:scale-95">
                UNO
              </button>
+          )}
+          
+          {/* Self-Save Warning (Optional UX) */}
+          {pendingUnoPlayerId === playerId && (
+             <div className="absolute -top-32 left-1/2 -translate-x-1/2 bg-red-600 text-white font-bold px-4 py-2 rounded-lg animate-pulse z-50">
+               QUICK! CLICK UNO!
+             </div>
           )}
 
           {/* Cards */}

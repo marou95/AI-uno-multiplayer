@@ -1,17 +1,15 @@
-/// <reference types="vite/client" />
-
 import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
 
-// We augment the existing ImportMetaEnv from vite/client
-// We do NOT redeclare PROD or the index signature to avoid conflicts
-// We cast import.meta.env to any in the code to bypass strict type checks if needed
+// We cast import.meta to any to avoid "Property 'env' does not exist" error and avoid dependency on vite/client types being present
 
 const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 
 const getBackendUrl = () => {
-  const env = import.meta.env as any;
+  const meta = import.meta as any;
+  const env = meta.env || {};
+  
   if (env.VITE_SERVER_URL) {
     console.log('Using VITE_SERVER_URL:', env.VITE_SERVER_URL);
     return env.VITE_SERVER_URL;
@@ -50,6 +48,7 @@ interface StoreState {
   playCard: (cardId: string, color?: string) => void;
   drawCard: () => void;
   sayUno: () => void;
+  catchUno: () => void;
   addNotification: (msg: string) => void;
   _setupRoom: (room: Colyseus.Room<UNOState>) => void;
 }
@@ -180,6 +179,7 @@ export const useStore = create<StoreState>((set, get) => ({
   playCard: (cardId, chooseColor) => get().room?.send("playCard", { cardId, chooseColor }),
   drawCard: () => get().room?.send("drawCard"),
   sayUno: () => get().room?.send("sayUno"),
+  catchUno: () => get().room?.send("catchUno"),
   
   addNotification: (msg) => {
     set(state => ({ notifications: [...state.notifications, msg] }));

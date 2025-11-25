@@ -35,4 +35,8 @@ export class UNOState extends Schema {
   @type("string") currentType: string = "";
   @type("number") currentValue: number = -1;
   @type("number") drawStack: number = 0;
+
+  // Tracks the ID of a player who just played down to 1 card without saying UNO
+  // If set, opponents can "Catch" this player.
+  @type("string") pendingUnoPenaltyPlayerId: string = "";
 }
