@@ -92,7 +92,7 @@ export const useStore = create<StoreState>((set, get) => ({
   // ---------------------------------------------------------
   // CORRECTION MAJEURE ICI : Recherche manuelle de la salle
   // ---------------------------------------------------------
-  joinRoom: async (code) => {
+joinRoom: async (code) => {
     const store = get();
     if (store.isConnecting || store.room) return;
 
@@ -102,24 +102,27 @@ export const useStore = create<StoreState>((set, get) => ({
       const nickname = store.nickname.trim();
       const roomCode = code.trim().toUpperCase();
       
-      if (!nickname) throw new Error("Enter a nickname");
-      if (roomCode.length !== 5) throw new Error("Code must be 5 letters");
+      if (!nickname) throw new Error("Pseudo requis");
+      if (roomCode.length !== 5) throw new Error("Le code doit faire 5 lettres");
 
-      console.log(`🔍 Searching for room with code: ${roomCode}...`);
+      console.log(`🔍 Recherche de la salle : ${roomCode}...`);
 
-      // 1. On récupère la liste de toutes les salles disponibles
-      const availableRooms = await store.client.getAvailableRooms("uno");
+      // ASTUCE : On cast en 'any' car TypeScript peut ne pas voir la méthode getAvailableRooms
+      // alors qu'elle existe bel et bien dans la librairie JS au runtime.
+      const availableRooms = await (store.client as any).getAvailableRooms("uno");
       
-      // 2. On cherche celle qui a le bon metadata.roomCode
-      const match = availableRooms.find(room => room.metadata && room.metadata.roomCode === roomCode);
+      console.log("📋 Salles disponibles :", availableRooms.length);
+
+      // On cherche manuellement la salle qui a le bon code dans ses métadonnées
+      const match = availableRooms.find((room: any) => room.metadata && room.metadata.roomCode === roomCode);
 
       if (!match) {
-        throw new Error("Room not found! Check the code.");
+        throw new Error(`Aucune salle trouvée avec le code ${roomCode}`);
       }
 
-      console.log(`✅ Room found (${match.roomId}). Joining...`);
+      console.log(`✅ Salle trouvée ! ID: ${match.roomId}. Connexion...`);
 
-      // 3. On rejoint via l'ID unique (beaucoup plus fiable que filterBy)
+      // On se connecte DIRECTEMENT à l'ID unique de la salle (plus de filtrage flou)
       const room = await store.client.joinById(match.roomId, { name: nickname }) as Colyseus.Room<UNOState>;
       
       store._setupRoom(room);
@@ -127,7 +130,11 @@ export const useStore = create<StoreState>((set, get) => ({
       
     } catch (e: any) {
       console.error("❌ Join error:", e);
-      let msg = e.message || "Could not join room";
+      let msg = e.message || "Impossible de rejoindre";
+      
+      // Traduction des erreurs courantes
+      if (msg.includes("not found")) msg = "Salle introuvable ou code invalide";
+      
       set({ error: msg, isConnecting: false });
       get().addNotification("⚠️ " + msg);
     }
