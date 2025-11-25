@@ -8,11 +8,22 @@ export const Lobby = () => {
   const { gameState, playerId, toggleReady, startGame, leaveRoom } = useStore();
   const [copied, setCopied] = useState(false);
 
-  if (!gameState) return null;
+  // --- SÉCURITÉ CRASH ---
+  // On vérifie gameState ET gameState.players avant tout accès.
+  if (!gameState || !gameState.players) {
+      return (
+          <div className="min-h-screen w-full bg-slate-900 flex items-center justify-center text-white flex-col gap-4">
+              <Loader2 className="animate-spin text-yellow-500" size={48} />
+              <p className="text-slate-400 font-bold animate-pulse">Syncing State...</p>
+          </div>
+      );
+  }
 
   const players = Array.from(gameState.players.values()) as Player[];
-  const me = gameState.players.get(playerId || "");
-  const isHost = players.length > 0 && players[0].id === playerId;
+  // Protection supplémentaire lors de l'accès au joueur courant
+  const me = gameState.players.get(playerId || "") || ({ isReady: false, name: "..." } as Player);
+  
+  const isHost = players.length > 0 && playerId ? players[0]?.id === playerId : false;
   const canStart = isHost && players.length >= 2 && players.every(p => p.isReady);
 
   const copyCode = () => {
@@ -38,27 +49,20 @@ export const Lobby = () => {
   };
 
   return (
-    // CORRECTION MOBILE: overflow-y-auto pour permettre le scroll si l'écran est trop petit
     <div className="min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-center p-4 relative overflow-y-auto">
       
-      {/* Background decorations (Fixed pour ne pas bouger au scroll) */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
          <div className="absolute top-10 left-10 w-64 h-64 bg-red-600 rounded-full blur-3xl animate-pulse" />
          <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
-      {/* Main Card */}
-      {/* CORRECTION MOBILE: p-4 sur mobile, p-8 sur desktop. my-auto pour centrer si possible, sinon scroll. */}
       <div className="max-w-2xl w-full bg-slate-800/80 backdrop-blur-lg p-4 md:p-8 rounded-3xl shadow-2xl border border-white/10 relative z-10 animate-in fade-in zoom-in duration-300 my-auto">
         
-        {/* Header */}
-        {/* CORRECTION MOBILE: mb-4 sur mobile au lieu de mb-8 */}
         <div className="flex flex-col items-center mb-4 md:mb-8">
             <h1 className="text-3xl md:text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500 mb-2 drop-shadow-sm tracking-wider">
                 LOBBY
             </h1>
             
-            {/* Room Code Badge */}
             <div 
                 onClick={copyCode}
                 className="group flex items-center gap-3 bg-black/40 hover:bg-black/60 px-4 py-2 md:px-6 md:py-3 rounded-xl cursor-pointer border border-white/10 transition-all hover:scale-105 active:scale-95"
@@ -71,8 +75,6 @@ export const Lobby = () => {
             </div>
         </div>
 
-        {/* Players Grid */}
-        {/* CORRECTION MOBILE: mb-4 au lieu de mb-8 */}
         <div className="mb-4 md:mb-8">
           <div className="flex items-center justify-between mb-2 md:mb-4 px-2">
             <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">PLAYERS ({players.length}/6)</h3>
@@ -121,7 +123,6 @@ export const Lobby = () => {
           </div>
         </div>
 
-        {/* Footer Actions */}
         <div className="flex flex-col gap-3 pt-4 md:pt-6 border-t border-white/10">
            <button 
               onClick={handleReady}

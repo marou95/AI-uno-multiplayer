@@ -134,12 +134,13 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // Update on change
     room.onStateChange((state) => {
-      // On crée un clone qui GARDE le Prototype (et donc les méthodes .get, .players, etc.)
-      // Si on faisait juste {...state}, on perdrait le lien avec MapSchema
-      const clone = Object.create(Object.getPrototypeOf(state));
-      Object.assign(clone, state);
+      // --- CORRECTIF DÉFINITIF ---
+      // On crée une VRAIE instance (pour avoir le prototype) et on copie les props.
+      // C'est plus sûr que Object.create() pour les MapSchema.
+      const newState = new UNOState();
+      Object.assign(newState, state);
       
-      set({ gameState: clone });
+      set({ gameState: newState });
     });
 
     room.onMessage("notification", (msg) => get().addNotification(msg));
