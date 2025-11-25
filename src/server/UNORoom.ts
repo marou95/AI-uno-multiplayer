@@ -1,5 +1,4 @@
 import { Room, Client, Delayed } from "colyseus";
-import { ArraySchema } from "@colyseus/schema";
 import { UNOState, Player, Card } from "./schema/UNOState";
 import { CardColor, CardType, GameStatus } from "../shared/types";
 
@@ -9,133 +8,134 @@ export class UNORoom extends Room<UNOState> {
   unoPenaltyTimeout: Delayed | null = null;
 
   async onCreate(options: any) {
-    try {
-        console.log(`🏗️ Creating room... ID: ${this.roomId}`);
-        
-        // 1. Initialize State immediately
-        this.setState(new UNOState());
-        this.playerIndexes = []; 
-        
-        // 2. Generate Code
-        const code = this.generateRoomCode();
-        this.state.roomCode = code;
-        
-        // 3. Set Metadata (Awaitable) for Matchmaking
-        await this.setMetadata({ roomCode: code });
-        
-        console.log(`✅ Room ready: ${this.roomId} | Code: ${code}`);
+    console.log(`🏗️ Creating room... ID: ${this.roomId}`);
+    
+    // 1. Initialiser le State
+    this.setState(new UNOState());
+    this.playerIndexes = []; 
+    
+    // 2. Générer le Code Public
+    const code = this.generateRoomCode();
+    this.state.roomCode = code; // <--- Si UNOState n'a pas @type("string") roomCode, ça peut planter ici
+    
+    // 3. Metadata pour le matchmaking (API lookup)
+    // On attend que cela soit fait avant de continuer
+    await this.setMetadata({ roomCode: code });
+    
+    console.log(`✅ Room ready: ${this.roomId} | Code: ${code}`);
 
-        this.onMessage("setInfo", (client: Client, data: any) => {
-          const player = this.state.players.get(client.sessionId);
-          if (player) player.name = data.name || "Guest";
-        });
+    // --- Gestionnaires de messages ---
 
-        this.onMessage("toggleReady", (client: Client) => {
-          if (this.state.status !== GameStatus.LOBBY) return;
-          const player = this.state.players.get(client.sessionId);
-          if (player) player.isReady = !player.isReady;
-        });
+    this.onMessage("setInfo", (client: Client, data: any) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) player.name = data.name || "Guest";
+    });
 
-        this.onMessage("startGame", (client: Client) => {
-          if (this.state.status !== GameStatus.LOBBY) return;
-          const readyCount = Array.from(this.state.players.values()).filter((p: Player) => p.isReady).length;
-          if (readyCount >= 2 && readyCount === this.state.players.size) {
-            this.startGame();
-          }
-        });
+    this.onMessage("toggleReady", (client: Client) => {
+      if (this.state.status !== GameStatus.LOBBY) return;
+      const player = this.state.players.get(client.sessionId);
+      if (player) player.isReady = !player.isReady;
+    });
 
-        this.onMessage("playCard", (client: Client, data: { cardId: string, chooseColor?: CardColor }) => {
-          this.handlePlayCard(client, data.cardId, data.chooseColor);
-        });
+    this.onMessage("startGame", (client: Client) => {
+      if (this.state.status !== GameStatus.LOBBY) return;
+      const readyCount = Array.from(this.state.players.values()).filter((p: Player) => p.isReady).length;
+      // Pour debug facile, on autorise le start seul si besoin, sinon mettre >= 2
+      if (readyCount >= 1 && readyCount === this.state.players.size) {
+        this.startGame();
+      }
+    });
 
-        this.onMessage("drawCard", (client: Client) => {
-          this.handleDrawCard(client);
-        });
+    this.onMessage("restartGame", (client: Client) => {
+        if (this.state.status === GameStatus.FINISHED) {
+            this.resetGame();
+        }
+    });
 
-        this.onMessage("sayUno", (client: Client) => {
-          const player = this.state.players.get(client.sessionId);
-          if (player) {
-             // Modification : On accepte UNO principalement à 2 cartes (avant de jouer)
-             // On garde <= 2 pour la sécurité (si le joueur a 1 carte et se sauve lui-même)
-             if (player.hand.length <= 2) {
-                player.hasSaidUno = true;
-                this.broadcast("notification", `${player.name} shouted UNO!`);
-             }
+    this.onMessage("playCard", (client: Client, data: { cardId: string, chooseColor?: CardColor }) => {
+      this.handlePlayCard(client, data.cardId, data.chooseColor);
+    });
 
-             // Sauvetage en cas de pénalité imminente
-             if (this.state.pendingUnoPenaltyPlayerId === client.sessionId) {
-                this.state.pendingUnoPenaltyPlayerId = "";
-                if (this.unoPenaltyTimeout) {
-                    this.unoPenaltyTimeout.clear();
-                    this.unoPenaltyTimeout = null;
-                }
-                this.broadcast("notification", `${player.name} saved themselves!`);
-             }
-          }
-        });
+    this.onMessage("drawCard", (client: Client) => {
+      this.handleDrawCard(client);
+    });
 
-        this.onMessage("catchUno", (client: Client) => {
-            const culpritId = this.state.pendingUnoPenaltyPlayerId;
-            if (!culpritId) return;
-            
-            if (culpritId === client.sessionId) return; // Cannot catch self via this command
+    this.onMessage("sayUno", (client: Client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) {
+         // Autoriser UNO si on a 2 cartes ou moins (juste avant de jouer ou après avoir pioché)
+         if (player.hand.length <= 2) {
+            player.hasSaidUno = true;
+            this.broadcast("notification", `${player.name} shouted UNO!`);
+         }
 
-            const culprit = this.state.players.get(culpritId);
-            const catcher = this.state.players.get(client.sessionId);
-
-            if (culprit && catcher) {
-                this.broadcast("notification", `🚨 ${catcher.name} CAUGHT ${culprit.name}! (+2 cards)`);
-                
-                this.moveCardFromDrawToHand(culprit);
-                this.moveCardFromDrawToHand(culprit);
-                culprit.hasSaidUno = false;
-
-                this.state.pendingUnoPenaltyPlayerId = "";
-                if (this.unoPenaltyTimeout) {
-                    this.unoPenaltyTimeout.clear();
-                    this.unoPenaltyTimeout = null;
-                }
+         // Sauvetage
+         if (this.state.pendingUnoPenaltyPlayerId === client.sessionId) {
+            this.state.pendingUnoPenaltyPlayerId = "";
+            if (this.unoPenaltyTimeout) {
+                this.unoPenaltyTimeout.clear();
+                this.unoPenaltyTimeout = null;
             }
-        });
-    } catch (e) {
-        console.error("❌ Error in onCreate:", e);
-        this.disconnect();
-    }
+            this.broadcast("notification", `${player.name} saved themselves!`);
+         }
+      }
+    });
+
+    this.onMessage("catchUno", (client: Client) => {
+        const culpritId = this.state.pendingUnoPenaltyPlayerId;
+        if (!culpritId) return;
+        if (culpritId === client.sessionId) return; 
+
+        const culprit = this.state.players.get(culpritId);
+        const catcher = this.state.players.get(client.sessionId);
+
+        if (culprit && catcher) {
+            this.broadcast("notification", `🚨 ${catcher.name} CAUGHT ${culprit.name}! (+2 cards)`);
+            this.moveCardFromDrawToHand(culprit);
+            this.moveCardFromDrawToHand(culprit);
+            culprit.hasSaidUno = false;
+            this.state.pendingUnoPenaltyPlayerId = "";
+            if (this.unoPenaltyTimeout) {
+                this.unoPenaltyTimeout.clear();
+                this.unoPenaltyTimeout = null;
+            }
+        }
+    });
   }
 
   onJoin(client: Client, options: any) {
-    try {
-        console.log(`👤 Joining: ${client.sessionId}`);
-        const player = new Player();
-        player.id = client.sessionId;
-        player.sessionId = client.sessionId;
-        player.name = options.name || "Guest";
-        this.state.players.set(client.sessionId, player);
-        this.playerIndexes.push(client.sessionId);
-    } catch (e) {
-        console.error("Join error:", e);
-    }
+    console.log(`👤 Joining: ${client.sessionId}`);
+    const player = new Player();
+    player.id = client.sessionId;
+    player.sessionId = client.sessionId;
+    player.name = options.name || "Guest";
+    this.state.players.set(client.sessionId, player);
+    this.playerIndexes.push(client.sessionId);
   }
 
   async onLeave(client: Client, consented: boolean) {
     const player = this.state.players.get(client.sessionId);
     if (player) {
       player.isConnected = false;
+      // Si on est dans le lobby, on supprime direct
       if (this.state.status === GameStatus.LOBBY) {
         this.state.players.delete(client.sessionId);
         this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
       } else {
+        // En jeu, on tente une reconnexion
         try {
           if (consented) throw new Error("Consented leave");
-          await this.allowReconnection(client, 30);
+          await this.allowReconnection(client, 30); // 30 secondes pour revenir
           player.isConnected = true;
         } catch (e) {
           this.state.players.delete(client.sessionId);
           this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
           this.broadcast("notification", `${player.name} left.`);
+          
+          // Si plus assez de joueurs, reset
           if (this.state.players.size < 2) {
-             this.state.status = GameStatus.LOBBY;
-             this.broadcast("notification", "Game reset (not enough players).");
+             this.resetGame(); // Retour au lobby
+             this.broadcast("notification", "Game reset (player left).");
           }
         }
       }
@@ -171,6 +171,33 @@ export class UNORoom extends Room<UNOState> {
     this.state.currentTurnPlayerId = this.playerIndexes[0];
   }
 
+  resetGame() {
+    this.broadcast("notification", "🔄 Returning to Lobby...");
+    this.state.status = GameStatus.LOBBY;
+    this.state.winner = "";
+    this.state.direction = 1;
+    this.state.drawStack = 0;
+    this.state.currentColor = "";
+    this.state.currentType = "";
+    this.state.currentValue = -1;
+    this.state.pendingUnoPenaltyPlayerId = "";
+    
+    this.state.drawPile.clear();
+    this.state.discardPile.clear();
+
+    this.state.players.forEach(player => {
+        player.hand.clear();
+        player.cardsRemaining = 0;
+        player.isReady = false; 
+        player.hasSaidUno = false;
+    });
+
+    if (this.unoPenaltyTimeout) {
+        this.unoPenaltyTimeout.clear();
+        this.unoPenaltyTimeout = null;
+    }
+  }
+
   handlePlayCard(client: Client, cardId: string, chooseColor?: CardColor) {
     if (this.state.currentTurnPlayerId !== client.sessionId) return;
     
@@ -190,18 +217,15 @@ export class UNORoom extends Room<UNOState> {
     this.state.discardPile.push(card);
     player.cardsRemaining = player.hand.length;
     
-    // --- UNO CHECK ---
-    // Si le joueur tombe à 1 carte et N'A PAS dit UNO avant (ou pendant), il est vulnérable.
+    // Si on tombe à 1 carte et qu'on n'a pas dit UNO, pénalité en attente
     if (player.hand.length === 1 && !player.hasSaidUno) {
         this.state.pendingUnoPenaltyPlayerId = player.sessionId;
-        
         if (this.unoPenaltyTimeout) this.unoPenaltyTimeout.clear();
         this.unoPenaltyTimeout = this.clock.setTimeout(() => {
             this.state.pendingUnoPenaltyPlayerId = "";
             this.unoPenaltyTimeout = null;
-        }, 3000); // 3 secondes pour se faire attraper
+        }, 3000); 
     } else {
-        // Reset s'il remonte ou s'il a bien dit UNO
         if (this.state.pendingUnoPenaltyPlayerId === player.sessionId) {
             this.state.pendingUnoPenaltyPlayerId = "";
             if (this.unoPenaltyTimeout) this.unoPenaltyTimeout.clear();
@@ -214,7 +238,6 @@ export class UNORoom extends Room<UNOState> {
         return;
     }
 
-    // Reset Uno flag si on repasse au dessus de 1 carte
     if (player.hand.length > 1) {
         player.hasSaidUno = false;
     }
@@ -350,7 +373,6 @@ export class UNORoom extends Room<UNOState> {
   createDeck() {
      this.state.drawPile.clear();
      const colors: CardColor[] = ['red', 'blue', 'green', 'yellow'];
-     
      colors.forEach(color => {
         this.addCard(color, 'number', 0);
         for(let i=1; i<=9; i++) {
@@ -362,7 +384,6 @@ export class UNORoom extends Room<UNOState> {
             this.addCard(color, type as CardType);
         });
      });
-
      for(let i=0; i<4; i++) {
         this.addCard('black', 'wild');
         this.addCard('black', 'wild4');

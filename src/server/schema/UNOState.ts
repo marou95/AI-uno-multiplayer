@@ -2,8 +2,8 @@ import { Schema, MapSchema, ArraySchema, type } from "@colyseus/schema";
 
 export class Card extends Schema {
   @type("string") id: string = "";
-  @type("string") color: string = ""; // 'red', 'blue', 'green', 'yellow', 'black'
-  @type("string") type: string = ""; // 'number', 'skip', 'reverse', 'draw2', 'wild', 'wild4'
+  @type("string") color: string = "";
+  @type("string") type: string = "";
   @type("number") value: number = -1;
 }
 
@@ -24,15 +24,15 @@ export class UNOState extends Schema {
   @type([Card]) discardPile = new ArraySchema<Card>();
   
   @type("string") currentTurnPlayerId: string = "";
-  @type("string") direction: number = 1; // 1 or -1
+  @type("number") direction: number = 1;
   @type("string") currentColor: string = "";
   @type("string") currentType: string = "";
   @type("number") currentValue: number = -1;
   @type("number") drawStack: number = 0;
-  @type("string") status: string = "LOBBY"; // 'LOBBY', 'PLAYING', 'FINISHED'
+  @type("string") status: string = "LOBBY"; 
   @type("string") winner: string = "";
   @type("string") pendingUnoPenaltyPlayerId: string = "";
 
-  // --- AJOUT IMPORTANT : Le code public de la salle ---
+  // INDISPENSABLE POUR LE LOBBY :
   @type("string") roomCode: string = ""; 
 }
