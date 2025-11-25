@@ -5,12 +5,12 @@ import { Player } from '../../server/schema/UNOState';
 import { playSound } from '../utils/sounds';
 
 export const Lobby = () => {
-  // On récupère _tick pour que ce composant se rafraichisse quand le store change
+  // On utilise _tick pour garantir le rafraîchissement suite aux changements d'état
   const { gameState, playerId, toggleReady, startGame, leaveRoom, _tick } = useStore();
   const [copied, setCopied] = useState(false);
 
-  // Protection stricte : on attend que les joueurs soient là
-  // Le ?. évite le crash si players n'est pas encore défini
+  // --- Écran de Chargement/Sécurité ---
+  // On n'affiche rien de concret tant que l'état n'est pas là, y compris l'objet players.
   if (!gameState || !gameState.players) {
       return (
           <div className="min-h-screen w-full bg-slate-900 flex items-center justify-center text-white flex-col gap-4">
@@ -20,13 +20,15 @@ export const Lobby = () => {
       );
   }
 
+  // --- Données et Logique ---
+  // Utilisation de .values() pour transformer la MapSchema en Array JavaScript
   const players = Array.from(gameState.players.values()) as Player[];
   
-  // Utilisation sécurisée de .get()
-  // Si .get n'existe pas (impossible avec le correctif store) ou retourne undefined, on fallback
-  const me = (gameState.players.get && gameState.players.get(playerId || "")) || ({ isReady: false, name: "..." } as Player);
+  // Accès sécurisé au joueur local
+  const me = gameState.players.get(playerId || "") || ({ isReady: false, name: "..." } as Player);
   
-  const isHost = players.length > 0 && playerId ? players[0]?.id === playerId : false;
+  // Logique du Host (le premier joueur dans la liste players)
+  const isHost = players[0]?.id === playerId;
   const canStart = isHost && players.length >= 2 && players.every(p => p.isReady);
 
   const copyCode = () => {
@@ -97,7 +99,7 @@ export const Lobby = () => {
                            {p.sessionId === playerId && <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded text-white/80">YOU</span>}
                        </div>
                        <div className="text-[10px] md:text-xs text-slate-400 font-medium">
-                           {players[0].sessionId === p.sessionId ? "👑 Host" : "Player"}
+                           {players[0]?.sessionId === p.sessionId ? "👑 Host" : "Player"}
                        </div>
                    </div>
                 </div>
