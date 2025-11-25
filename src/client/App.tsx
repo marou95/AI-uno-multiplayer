@@ -45,9 +45,9 @@ const App = () => {
           {/* Titre */}
           <div className="text-center">
             <div className="inline-block transform hover:rotate-3 transition-transform duration-300">
-               <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-yellow-500 tracking-tighter drop-shadow-sm">UNO</h1>
+               <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-yellow-500 tracking-tighter drop-shadow-sm">UNO</h1>
             </div>
-            <p className="text-slate-400 mt-2 font-medium tracking-wide text-sm uppercase">Multiplayer AI Edition</p>
+            <p className="text-slate-400 mt-2 font-medium tracking-wide text-sm uppercase">Multiplayer</p>
           </div>
 
           {/* Formulaire */}
@@ -58,7 +58,7 @@ const App = () => {
                <input 
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  placeholder="Ex: Maverick"
+                  placeholder="Type here"
                   disabled={isConnecting}
                   className="w-full bg-slate-900/50 text-white p-4 rounded-xl border border-slate-700 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none font-bold text-lg disabled:opacity-50 transition-all placeholder:text-slate-600"
                />
