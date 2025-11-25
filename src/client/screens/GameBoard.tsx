@@ -7,7 +7,8 @@ import { playSound } from '../utils/sounds';
 import confetti from 'canvas-confetti';
 import { Player } from '../../server/schema/UNOState';
 import clsx from 'clsx';
-import { Siren, RotateCcw, LogOut } from 'lucide-react';
+// AJOUT DE L'ICÔNE DE COULEUR
+import { Siren, RotateCcw, LogOut, PaintBucket } from 'lucide-react';
 
 const bgColors: Record<string, string> = {
   red: 'bg-red-500',
@@ -137,7 +138,6 @@ export const GameBoard = () => {
           return (
             <div key={player.sessionId} className="absolute flex flex-col items-center gap-1 md:gap-2 transition-all duration-500" style={getOpponentStyle(index, rotatedPlayers.length)}>
               
-                {/* CHANGEMENT ICI : Conteneur pour le nom complet au lieu du rond */}
               <div className={clsx(
                     "relative px-3 py-1 md:px-4 md:py-2 rounded-full border-4 text-sm md:text-base font-bold transition-all duration-300 whitespace-nowrap",
                     gameState.currentTurnPlayerId === player.sessionId 
@@ -177,17 +177,31 @@ export const GameBoard = () => {
                   <Card card={topCard} playable={false} small /> {/* Utilisation version small sur mobile si besoin */}
                 </motion.div>
               )}
-              {/* SUPPRESSION : L'indicateur de couleur en dessous de la carte posée a été retiré ici */}
+                {/* NOUVEL INDICATEUR DE COULEUR STYLISÉ */}
+                <AnimatePresence>
+                    <motion.div 
+                        key={gameState.currentColor}
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                        className={clsx("absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold border-2 shadow-lg transition-colors duration-300 whitespace-nowrap flex items-center gap-1.5 z-20", 
+                            gameState.currentColor === 'black' ? 'bg-white text-slate-800 border-slate-800' : 'text-white border-white', 
+                            bgColors[gameState.currentColor]
+                        )}
+                    >
+                        <PaintBucket size={14} className="transform scale-x-[-1]" />
+                        {gameState.currentColor.toUpperCase()}
+                    </motion.div>
+                </AnimatePresence>
             </div>
         </div>
       </div>
 
       {/* ZONE BASSE (Main du joueur) - FIXÉE AU BAS */}
-      {/* flex-none assure que cette zone ne rétrécit pas */}
       <div className="flex-none w-full px-2 pb-2 md:pb-6 relative z-30">
         
         {/* Bouton UNO Flottant */}
-        {/* Condition: Exactement 2 cartes */}
         {me && me.hand.length === 2 && !me.hasSaidUno && (
             <button 
               onClick={() => { sayUno(); playSound('uno'); }} 
@@ -208,8 +222,8 @@ export const GameBoard = () => {
                 />
               </div>
             ))}
-            </div>
           </div>
+        </div>
 
         <div className="text-center h-6 mt-1">
            {isMyTurn 
