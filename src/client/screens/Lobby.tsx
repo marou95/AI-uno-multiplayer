@@ -22,28 +22,13 @@ export const Lobby = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleReady = () => {
-    toggleReady();
-    playSound('click');
-  };
-
-  const handleStart = () => {
-    startGame();
-    playSound('play');
-  };
-
-  const handleLeave = () => {
-    leaveRoom();
-    playSound('click');
-  };
-
   return (
     <div className="min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      
       {/* Background decorations */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
          <div className="absolute top-10 left-10 w-64 h-64 bg-red-600 rounded-full blur-3xl animate-pulse" />
          <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-yellow-400 rounded-full blur-3xl opacity-10" />
       </div>
 
       <div className="max-w-2xl w-full bg-slate-800/80 backdrop-blur-lg p-8 rounded-3xl shadow-2xl border border-white/10 relative z-10 animate-in fade-in zoom-in duration-300">
@@ -105,7 +90,7 @@ export const Lobby = () => {
               </div>
             ))}
             
-            {/* Empty Slots */}
+            {/* Empty Slots (Visual filler) */}
             {Array.from({ length: Math.max(0, 6 - players.length) }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 bg-slate-800/30 p-3 rounded-xl border border-white/5 border-dashed opacity-50">
                     <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-600">
@@ -121,7 +106,7 @@ export const Lobby = () => {
         <div className="flex flex-col gap-3 pt-6 border-t border-white/10">
            {/* READY BUTTON */}
            <button 
-              onClick={handleReady}
+              onClick={() => { toggleReady(); playSound('click'); }}
               className={`w-full py-4 rounded-xl font-black text-xl tracking-wide transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg flex items-center justify-center gap-3 ${
                  me?.isReady 
                  ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
@@ -135,7 +120,7 @@ export const Lobby = () => {
            {isHost && (
              <button 
                 disabled={!canStart}
-                onClick={handleStart}
+                onClick={() => { startGame(); playSound('play'); }}
                 className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale hover:brightness-110 transition-all shadow-lg shadow-orange-900/20"
              >
                 <Play size={24} fill="currentColor" /> START GAME
@@ -143,7 +128,10 @@ export const Lobby = () => {
            )}
 
            {/* LEAVE BUTTON */}
-           <button onClick={handleLeave} className="mt-2 w-full text-slate-400 text-sm py-2 hover:text-red-400 flex items-center justify-center gap-2 transition-colors font-medium">
+           <button 
+              onClick={() => { leaveRoom(); playSound('click'); }}
+              className="mt-2 w-full text-slate-400 text-sm py-2 hover:text-red-400 flex items-center justify-center gap-2 transition-colors font-medium"
+           >
               <LogOut size={16} /> Leave Room
            </button>
         </div>
