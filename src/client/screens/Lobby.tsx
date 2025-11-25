@@ -23,7 +23,8 @@ export const Lobby = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    // CONTENEUR PRINCIPAL (ajustement pour le défilement)
+    <div className="h-full min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-start p-4 relative overflow-hidden">
       
       {/* Background decorations */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
@@ -31,29 +32,31 @@ export const Lobby = () => {
          <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
-      <div className="max-w-2xl w-full bg-slate-800/80 backdrop-blur-lg p-8 rounded-3xl shadow-2xl border border-white/10 relative z-10 animate-in fade-in zoom-in duration-300">
+      <div className="max-w-2xl w-full h-full md:h-auto bg-slate-800/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/10 relative z-10 animate-in fade-in zoom-in duration-300 flex flex-col">
         
-        {/* Header */}
-        <div className="flex flex-col items-center mb-8">
-            <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500 mb-2 drop-shadow-sm tracking-wider">
-                LOBBY
-            </h1>
-            
-            {/* Room Code Badge */}
-            <div 
-                onClick={copyCode}
-                className="group flex items-center gap-3 bg-black/40 hover:bg-black/60 px-6 py-3 rounded-xl cursor-pointer border border-white/10 transition-all hover:scale-105 active:scale-95"
-            >
-                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">ROOM CODE</span>
-                <span className="text-3xl font-mono font-black text-white tracking-widest">{gameState.roomCode}</span>
-                <div className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 group-hover:bg-white/20 transition-colors">
-                    {copied ? <CheckCircle2 size={16} className="text-green-400" /> : <Copy size={16} />}
+        {/* HEADER STICKY (Code de la Salle) - Rendu visible en haut */}
+        <div className="sticky top-0 z-20 bg-slate-800/90 backdrop-blur-md pt-4 pb-2 px-4 md:p-8 rounded-t-3xl border-b border-white/10">
+            <div className="flex flex-col items-center">
+                <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500 mb-2 drop-shadow-sm tracking-wider">
+                    LOBBY
+                </h1>
+                
+                {/* Room Code Badge */}
+                <div 
+                    onClick={copyCode}
+                    className="group flex items-center gap-3 bg-black/40 hover:bg-black/60 px-6 py-3 rounded-xl cursor-pointer border border-white/10 transition-all hover:scale-105 active:scale-95"
+                >
+                    <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">ROOM CODE</span>
+                    <span className="text-3xl font-mono font-black text-white tracking-widest">{gameState.roomCode}</span>
+                    <div className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 group-hover:bg-white/20 transition-colors">
+                        {copied ? <CheckCircle2 size={16} className="text-green-400" /> : <Copy size={16} />}
+                    </div>
                 </div>
             </div>
         </div>
-
-        {/* Players Grid */}
-        <div className="mb-8">
+        
+        {/* PLAYERS GRID CONTAINER - RENDU DEFILABLE */}
+        <div className="p-4 md:px-8 flex-grow overflow-y-auto max-h-[60vh] md:max-h-96">
           <div className="flex items-center justify-between mb-4 px-2">
             <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">PLAYERS ({players.length}/6)</h3>
             {isHost && <span className="text-yellow-500 text-xs font-bold bg-yellow-500/10 px-2 py-1 rounded">YOU ARE HOST</span>}
@@ -67,13 +70,13 @@ export const Lobby = () => {
                       {p.name.substring(0,1).toUpperCase()}
                    </div>
                    <div className="flex flex-col">
-                       <div className="text-white font-bold flex items-center gap-2">
-                           {p.name} 
-                           {p.sessionId === playerId && <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded text-white/80">YOU</span>}
-                       </div>
-                       <div className="text-xs text-slate-400 font-medium">
-                           {players[0].sessionId === p.sessionId ? "👑 Host" : "Player"}
-                       </div>
+                      <div className="text-white font-bold flex items-center gap-2">
+                          {p.name} 
+                          {p.sessionId === playerId && <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded text-white/80">YOU</span>}
+                      </div>
+                      <div className="text-xs text-slate-400 font-medium">
+                          {players[0].sessionId === p.sessionId ? "👑 Host" : "Player"}
+                      </div>
                    </div>
                 </div>
                 
@@ -102,38 +105,40 @@ export const Lobby = () => {
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex flex-col gap-3 pt-6 border-t border-white/10">
-           {/* READY BUTTON */}
-           <button 
-              onClick={() => { toggleReady(); playSound('click'); }}
-              className={`w-full py-4 rounded-xl font-black text-xl tracking-wide transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg flex items-center justify-center gap-3 ${
-                 me?.isReady 
-                 ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
-                 : "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 shadow-green-900/30"
-              }`}
-           >
-              {me?.isReady ? "CANCEL READY" : "READY UP !"}
-           </button>
+        {/* FOOTER STICKY (Actions) - Rendu visible en bas */}
+        <div className="sticky bottom-0 z-20 bg-slate-800/90 backdrop-blur-md pt-6 pb-4 px-4 md:p-8 rounded-b-3xl border-t border-white/10">
+          <div className="flex flex-col gap-3">
+            {/* READY BUTTON */}
+            <button 
+               onClick={() => { toggleReady(); playSound('click'); }}
+               className={`w-full py-4 rounded-xl font-black text-xl tracking-wide transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg flex items-center justify-center gap-3 ${
+                   me?.isReady 
+                   ? "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
+                   : "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 shadow-green-900/30"
+               }`}
+            >
+               {me?.isReady ? "CANCEL READY" : "READY UP !"}
+            </button>
 
-           {/* START BUTTON (HOST ONLY) */}
-           {isHost && (
-             <button 
-                disabled={!canStart}
-                onClick={() => { startGame(); playSound('play'); }}
-                className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale hover:brightness-110 transition-all shadow-lg shadow-orange-900/20"
-             >
-                <Play size={24} fill="currentColor" /> START GAME
-             </button>
-           )}
+            {/* START BUTTON (HOST ONLY) */}
+            {isHost && (
+               <button 
+                  disabled={!canStart}
+                  onClick={() => { startGame(); playSound('play'); }}
+                  className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale hover:brightness-110 transition-all shadow-lg shadow-orange-900/20"
+               >
+                  <Play size={24} fill="currentColor" /> START GAME
+               </button>
+            )}
 
-           {/* LEAVE BUTTON */}
-           <button 
-              onClick={() => { leaveRoom(); playSound('click'); }}
-              className="mt-2 w-full text-slate-400 text-sm py-2 hover:text-red-400 flex items-center justify-center gap-2 transition-colors font-medium"
-           >
-              <LogOut size={16} /> Leave Room
-           </button>
+            {/* LEAVE BUTTON */}
+            <button 
+               onClick={() => { leaveRoom(); playSound('click'); }}
+               className="mt-2 w-full text-slate-400 text-sm py-2 hover:text-red-400 flex items-center justify-center gap-2 transition-colors font-medium"
+            >
+               <LogOut size={16} /> Leave Room
+            </button>
+          </div>
         </div>
 
       </div>
