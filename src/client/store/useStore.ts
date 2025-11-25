@@ -27,7 +27,6 @@ interface StoreState {
   error: string | null;
   notifications: string[];
   isConnecting: boolean;
-  _tick: number; // Sert à forcer le re-render React
   
   setNickname: (name: string) => void;
   createRoom: () => Promise<void>;
@@ -53,7 +52,6 @@ export const useStore = create<StoreState>((set, get) => ({
   error: null,
   notifications: [],
   isConnecting: false,
-  _tick: 0,
 
   setNickname: (name) => {
     localStorage.setItem('uno_nickname', name);
@@ -131,20 +129,12 @@ export const useStore = create<StoreState>((set, get) => ({
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
     set({ room, playerId: room.sessionId, error: null });
     
-    // Initial State avec vérification
-    if (room.state && room.state.players) {
-      set({ gameState: room.state });
-    }
+    room.onStateChange.once((state) => {
+      set({ gameState: state as any });
+    });
 
-    // Update on change
     room.onStateChange((state) => {
-      // Vérification que le state est valide avant de le stocker
-      if (state && state.players && typeof state.players.get === 'function') {
-        set((prev) => ({ 
-          gameState: state, 
-          _tick: prev._tick + 1 
-        }));
-      }
+      set({ gameState: state as any });
     });
 
     room.onMessage("notification", (msg) => get().addNotification(msg));

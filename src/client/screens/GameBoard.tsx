@@ -99,7 +99,9 @@ export const GameBoard = () => {
     );
   }
 
+  // --- STRUCTURE DU PLATEAU DE JEU ---
   return (
+    // CORRECTION MOBILE: h-[100dvh] pour éviter d'être coupé par la barre d'adresse
     <div className="w-full h-[100dvh] bg-green-800 overflow-hidden relative flex flex-col">
       
       {/* Background Animé */}
@@ -126,6 +128,7 @@ export const GameBoard = () => {
       </AnimatePresence>
 
       {/* ZONE CENTRALE (Table + Opposants) */}
+      {/* flex-1 permet de prendre tout l'espace restant, min-h-0 permet de réduire si nécessaire */}
       <div className="flex-1 relative w-full min-h-0 flex items-center justify-center">
         
         {/* Opposants */}
@@ -148,7 +151,6 @@ export const GameBoard = () => {
 
         {/* Table (Pioche + Défausse) */}
         <div className="flex items-center gap-6 md:gap-12 z-10 scale-90 md:scale-100">
-            {/* Draw Pile */}
             <div className="relative cursor-pointer group" onClick={() => { if(isMyTurn) { drawCard(); playSound('draw'); } }} onMouseEnter={() => playSound('hover')}>
               <div className="w-20 h-32 md:w-24 md:h-36 bg-slate-900 rounded-xl border-4 border-white shadow-xl flex items-center justify-center group-hover:scale-105 transition-transform">
                 <span className="text-red-500 font-bold text-2xl italic">UNO</span>
@@ -157,12 +159,10 @@ export const GameBoard = () => {
                 <div className="absolute -top-3 -right-3 bg-red-600 text-white font-bold w-10 h-10 rounded-full flex items-center justify-center border-4 border-white animate-bounce shadow-lg z-20">+{gameState.drawStack}</div>
               )}
             </div>
-            
-            {/* Discard Pile */}
             <div className="relative w-20 h-32 md:w-24 md:h-36">
               {topCard && (
                 <motion.div key={topCard.id} initial={{ scale: 1.5, opacity: 0, rotate: Math.random() * 20 - 10 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} className="absolute inset-0">
-                  <Card card={topCard} playable={false} small /> {/* <--- small prop is now valid */}
+                  <Card card={topCard} playable={false} small /> {/* Utilisation version small sur mobile si besoin */}
                 </motion.div>
               )}
               <div className={clsx("absolute -bottom-6 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-4 border-white shadow-lg transition-colors duration-300", bgColors[gameState.currentColor] || 'bg-slate-800')} />
@@ -171,21 +171,22 @@ export const GameBoard = () => {
       </div>
 
       {/* ZONE BASSE (Main du joueur) - FIXÉE AU BAS */}
-      <div className="flex-none w-full px-2 pb-8 relative z-30">
+      {/* flex-none assure que cette zone ne rétrécit pas */}
+      <div className="flex-none w-full px-2 pb-2 md:pb-6 relative z-30">
         
         {/* Bouton UNO Flottant */}
+        {/* Condition: Exactement 2 cartes */}
         {me && me.hand.length === 2 && !me.hasSaidUno && (
             <button 
               onClick={() => { sayUno(); playSound('uno'); }} 
-              className="absolute -top-24 right-4 md:right-20 bg-gradient-to-br from-yellow-400 to-yellow-600 text-red-900 font-black text-lg md:text-2xl w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-white shadow-[0_0_30px_rgba(250,204,21,0.6)] animate-bounce z-40 hover:scale-110 active:scale-95 flex items-center justify-center transform hover:rotate-12 transition-transform"
+              className="absolute -top-20 right-4 md:right-20 bg-gradient-to-br from-yellow-400 to-yellow-600 text-red-900 font-black text-lg md:text-2xl w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-white shadow-[0_0_30px_rgba(250,204,21,0.6)] animate-bounce z-40 hover:scale-110 active:scale-95 flex items-center justify-center transform hover:rotate-12 transition-transform"
             >
               UNO!
             </button>
         )}
 
-        {/* Main des cartes avec espace supérieur augmenté (pt-16) */}
         <div className="relative max-w-5xl mx-auto h-32 md:h-56 flex items-end justify-center perspective-1000">
-          <div className="flex items-end justify-center -space-x-8 md:-space-x-12 hover:space-x-0 transition-all duration-300 w-full overflow-x-auto p-2 pt-16 scrollbar-hide h-full">
+          <div className="flex items-end justify-center -space-x-8 md:-space-x-12 hover:space-x-0 transition-all duration-300 w-full overflow-x-auto p-2 pt-10 scrollbar-hide h-full">
             {me?.hand.map((card, i) => (
               <div key={card.id} className="relative transition-transform duration-200 hover:z-50 hover:-translate-y-8 origin-bottom pb-2 min-w-[60px] md:min-w-0" style={{ zIndex: i }}>
                 <Card 
@@ -198,8 +199,7 @@ export const GameBoard = () => {
           </div>
         </div>
 
-        {/* Turn Indicator */}
-        <div className="text-center h-6 mt-2">
+        <div className="text-center h-6 mt-1">
            {isMyTurn 
              ? <span className="text-yellow-300 font-black text-lg md:text-xl animate-pulse tracking-wider drop-shadow-md">✨ YOUR TURN ✨</span> 
              : <span className="text-white/60 font-medium tracking-wide text-sm">Waiting for {players.find(p => p.sessionId === gameState.currentTurnPlayerId)?.name}...</span>
@@ -228,9 +228,11 @@ export const GameBoard = () => {
 };
 
 const getOpponentStyle = (index: number, total: number) => {
+    // Styles simplifiés pour mobile/desktop
     const styles: Record<string, React.CSSProperties> = {};
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     
+    // Positionnement ajusté (plus serré sur mobile)
     if (total === 2) {
         styles[1] = { top: '10%', left: '50%', transform: 'translateX(-50%)' };
     } else if (total === 3) {
