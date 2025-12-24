@@ -7,6 +7,7 @@ export class UNORoom extends Room<UNOState> {
   maxClients = 6;
   playerIndexes: string[] = [];
   unoPenaltyTimeout: Delayed | null = null;
+  disconnectionTimeouts: Map<string, Delayed> = new Map();
 
   async onCreate(options: any) {
     try {
@@ -92,11 +93,9 @@ export class UNORoom extends Room<UNOState> {
             }
         });
 
-        // ✅ NOUVEAU: Seulement l'hôte peut redémarrer la partie
         this.onMessage("restartGame", (client: Client) => {
           if (this.state.status !== GameStatus.FINISHED) return;
           
-          // Vérifier que c'est l'hôte (premier joueur)
           const players = Array.from(this.state.players.values()) as Player[];
           const isHost = players.length > 0 && players[0].sessionId === client.sessionId;
           
@@ -118,12 +117,36 @@ export class UNORoom extends Room<UNOState> {
   onJoin(client: Client, options: any) {
     try {
         console.log(`👤 Joining: ${client.sessionId}`);
-        const player = new Player();
-        player.id = client.sessionId;
-        player.sessionId = client.sessionId;
-        player.name = options.name || "Guest";
-        this.state.players.set(client.sessionId, player);
-        this.playerIndexes.push(client.sessionId);
+        
+        // ✅ NOUVEAU: Vérifier si c'est une reconnexion
+        let player = this.state.players.get(client.sessionId);
+        
+        if (player && !player.isConnected) {
+            // C'est une reconnexion !
+            console.log(`🔄 Player ${client.sessionId} reconnected!`);
+            player.isConnected = true;
+            player.name = options.name || player.name;
+            
+            // Annuler le timeout de déconnexion
+            const timeout = this.disconnectionTimeouts.get(client.sessionId);
+            if (timeout) {
+                timeout.clear();
+                this.disconnectionTimeouts.delete(client.sessionId);
+            }
+            
+            this.broadcast("notification", `${player.name} reconnected!`);
+            return;
+        }
+        
+        // Première connexion
+        if (!player) {
+            player = new Player();
+            player.id = client.sessionId;
+            player.sessionId = client.sessionId;
+            player.name = options.name || "Guest";
+            this.state.players.set(client.sessionId, player);
+            this.playerIndexes.push(client.sessionId);
+        }
     } catch (e) {
         console.error("Join error:", e);
     }
@@ -131,26 +154,50 @@ export class UNORoom extends Room<UNOState> {
 
   async onLeave(client: Client, consented: boolean) {
     const player = this.state.players.get(client.sessionId);
-    if (player) {
-      player.isConnected = false;
-      if (this.state.status === GameStatus.LOBBY) {
+    if (!player) return;
+
+    if (this.state.status === GameStatus.LOBBY) {
+      // En LOBBY, suppression immédiate
+      this.state.players.delete(client.sessionId);
+      this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
+      return;
+    }
+
+    // En PLAYING ou FINISHED, on laisse 60s pour se reconnecter
+    player.isConnected = false;
+    this.broadcast("notification", `⏱️ ${player.name} disconnected. Waiting for reconnection... (60s)`);
+
+    console.log(`💔 Player ${client.sessionId} disconnected from game`);
+
+    // Mettre en place un timeout de 60s
+    const timeout = this.clock.setTimeout(() => {
+      const connectedCount = Array.from(this.state.players.values()).filter(p => p.isConnected).length;
+      
+      if (connectedCount < 2) {
+        console.log(`⏰ Timeout: Not enough players, aborting game`);
+        this.broadcast("notification", "⏸️ Game aborted (not enough players)");
+        this.state.status = GameStatus.LOBBY;
+        this.state.winner = "";
+        
+        // Supprimer le joueur
         this.state.players.delete(client.sessionId);
         this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
       } else {
-        try {
-          if (consented) throw new Error("Consented leave");
-          await this.allowReconnection(client, 30);
-          player.isConnected = true;
-        } catch (e) {
-          this.state.players.delete(client.sessionId);
-          this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
-          this.broadcast("notification", `${player.name} left.`);
-          if (this.state.players.size < 2) {
-             this.state.status = GameStatus.LOBBY;
-             this.broadcast("notification", "Game reset (not enough players).");
-          }
-        }
+        console.log(`⏰ Timeout: Player ${client.sessionId} permanently removed`);
+        this.state.players.delete(client.sessionId);
+        this.playerIndexes = this.playerIndexes.filter(id => id !== client.sessionId);
       }
+      
+      this.disconnectionTimeouts.delete(client.sessionId);
+    }, 60000); // 60 secondes
+
+    this.disconnectionTimeouts.set(client.sessionId, timeout);
+
+    try {
+      if (consented) throw new Error("Consented leave");
+      await this.allowReconnection(client, 60); // Permettre la reconnexion pendant 60s
+    } catch (e) {
+      // Si allowReconnection échoue, on l'a déjà supprimé du timeout
     }
   }
 
@@ -181,10 +228,9 @@ export class UNORoom extends Room<UNOState> {
     }
 
     this.state.currentTurnPlayerId = this.playerIndexes[0];
-    this.state.winner = ""; // Clear le winner
+    this.state.winner = "";
   }
 
-  // ✅ Logique de restart (appelée seulement par l'hôte)
   restartGame() {
     console.log(`🔄 Restarting game in room ${this.roomId}`);
     this.broadcast("notification", "🎮 Starting a new game!");

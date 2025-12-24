@@ -14,6 +14,20 @@ const App = () => {
   const [view, setView] = useState<'home' | 'lobby' | 'game'>('home');
 
   useEffect(() => {
+    // ✅ NOUVEAU: Vérifier l'URL au démarrage
+    const params = new URLSearchParams(window.location.search);
+    const roomCodeFromUrl = params.get('room');
+    
+    if (roomCodeFromUrl && !gameState && nickname) {
+      setCode(roomCodeFromUrl);
+      // Auto-join après un court délai
+      setTimeout(() => {
+        joinRoom(roomCodeFromUrl);
+      }, 500);
+    }
+  }, []);
+
+  useEffect(() => {
     // Gestion automatique des vues selon l'état du jeu
     if (!gameState) {
       setView('home');
