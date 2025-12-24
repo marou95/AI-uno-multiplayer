@@ -12,15 +12,12 @@ export class UNORoom extends Room<UNOState> {
     try {
         console.log(`🏗️ Creating room... ID: ${this.roomId}`);
         
-        // 1. Initialize State immediately
         this.setState(new UNOState());
         this.playerIndexes = []; 
         
-        // 2. Generate Code
         const code = this.generateRoomCode();
         this.state.roomCode = code;
         
-        // 3. Set Metadata (Awaitable) for Matchmaking
         await this.setMetadata({ roomCode: code });
         
         console.log(`✅ Room ready: ${this.roomId} | Code: ${code}`);
@@ -55,14 +52,11 @@ export class UNORoom extends Room<UNOState> {
         this.onMessage("sayUno", (client: Client) => {
           const player = this.state.players.get(client.sessionId);
           if (player) {
-             // Modification : On accepte UNO principalement à 2 cartes (avant de jouer)
-             // On garde <= 2 pour la sécurité (si le joueur a 1 carte et se sauve lui-même)
              if (player.hand.length <= 2) {
                 player.hasSaidUno = true;
                 this.broadcast("notification", `${player.name} shouted UNO!`);
              }
 
-             // Sauvetage en cas de pénalité imminente
              if (this.state.pendingUnoPenaltyPlayerId === client.sessionId) {
                 this.state.pendingUnoPenaltyPlayerId = "";
                 if (this.unoPenaltyTimeout) {
@@ -78,7 +72,7 @@ export class UNORoom extends Room<UNOState> {
             const culpritId = this.state.pendingUnoPenaltyPlayerId;
             if (!culpritId) return;
             
-            if (culpritId === client.sessionId) return; // Cannot catch self via this command
+            if (culpritId === client.sessionId) return;
 
             const culprit = this.state.players.get(culpritId);
             const catcher = this.state.players.get(client.sessionId);
@@ -97,6 +91,24 @@ export class UNORoom extends Room<UNOState> {
                 }
             }
         });
+
+        // ✅ NOUVEAU: Seulement l'hôte peut redémarrer la partie
+        this.onMessage("restartGame", (client: Client) => {
+          if (this.state.status !== GameStatus.FINISHED) return;
+          
+          // Vérifier que c'est l'hôte (premier joueur)
+          const players = Array.from(this.state.players.values()) as Player[];
+          const isHost = players.length > 0 && players[0].sessionId === client.sessionId;
+          
+          if (!isHost) {
+            client.send("notification", "Only the host can restart the game!");
+            return;
+          }
+
+          console.log(`🔄 Host ${client.sessionId} restarting game in room ${this.roomId}`);
+          this.restartGame();
+        });
+
     } catch (e) {
         console.error("❌ Error in onCreate:", e);
         this.disconnect();
@@ -169,6 +181,14 @@ export class UNORoom extends Room<UNOState> {
     }
 
     this.state.currentTurnPlayerId = this.playerIndexes[0];
+    this.state.winner = ""; // Clear le winner
+  }
+
+  // ✅ Logique de restart (appelée seulement par l'hôte)
+  restartGame() {
+    console.log(`🔄 Restarting game in room ${this.roomId}`);
+    this.broadcast("notification", "🎮 Starting a new game!");
+    this.startGame();
   }
 
   handlePlayCard(client: Client, cardId: string, chooseColor?: CardColor) {
@@ -190,8 +210,6 @@ export class UNORoom extends Room<UNOState> {
     this.state.discardPile.push(card);
     player.cardsRemaining = player.hand.length;
     
-    // --- UNO CHECK ---
-    // Si le joueur tombe à 1 carte et N'A PAS dit UNO avant (ou pendant), il est vulnérable.
     if (player.hand.length === 1 && !player.hasSaidUno) {
         this.state.pendingUnoPenaltyPlayerId = player.sessionId;
         
@@ -199,9 +217,8 @@ export class UNORoom extends Room<UNOState> {
         this.unoPenaltyTimeout = this.clock.setTimeout(() => {
             this.state.pendingUnoPenaltyPlayerId = "";
             this.unoPenaltyTimeout = null;
-        }, 3000); // 3 secondes pour se faire attraper
+        }, 3000);
     } else {
-        // Reset s'il remonte ou s'il a bien dit UNO
         if (this.state.pendingUnoPenaltyPlayerId === player.sessionId) {
             this.state.pendingUnoPenaltyPlayerId = "";
             if (this.unoPenaltyTimeout) this.unoPenaltyTimeout.clear();
@@ -214,7 +231,6 @@ export class UNORoom extends Room<UNOState> {
         return;
     }
 
-    // Reset Uno flag si on repasse au dessus de 1 carte
     if (player.hand.length > 1) {
         player.hasSaidUno = false;
     }
