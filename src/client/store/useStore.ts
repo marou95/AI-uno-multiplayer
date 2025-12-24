@@ -8,20 +8,20 @@ const getBackendUrl = () => {
   const meta = import.meta as any;
   const env = meta.env || {};
   if (env.VITE_SERVER_URL) return env.VITE_SERVER_URL;
-  
+
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    
+
     if (hostname.includes('vercel.app')) {
       return RAILWAY_BACKEND;
     }
-    
+
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
       const protocol = window.location.protocol.replace('http', 'ws');
       return `${protocol}//${hostname}:2567`;
     }
   }
-  
+
   const protocol = window.location.protocol.replace('http', 'ws');
   return `${protocol}//${window.location.host}:2567`;
 };
@@ -38,7 +38,7 @@ interface StoreState {
   error: string | null;
   notifications: string[];
   isConnecting: boolean;
-  
+
   setNickname: (name: string) => void;
   createRoom: () => Promise<void>;
   joinRoom: (code: string) => Promise<void>;
@@ -82,11 +82,11 @@ export const useStore = create<StoreState>((set, get) => ({
 
       console.log(`🎮 Creating room on ${SERVER_URL}...`);
       const room = await store.client.create("uno", { name: nickname }) as Colyseus.Room<UNOState>;
-      
+
       console.log("✅ Room Created (ID):", room.roomId);
       store._setupRoom(room);
       set({ isConnecting: false });
-      
+
     } catch (e: any) {
       console.error("❌ Create error:", e);
       set({ error: e.message || "Failed to create room", isConnecting: false });
@@ -99,10 +99,10 @@ export const useStore = create<StoreState>((set, get) => ({
 
     try {
       set({ error: null, isConnecting: true });
-      
+
       const nickname = store.nickname.trim();
       const roomCode = code.trim().toUpperCase();
-      
+
       if (!nickname) throw new Error("Nickname required");
       if (roomCode.length !== 5) throw new Error("Code must be 5 letters");
 
@@ -110,7 +110,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
       const httpUrl = SERVER_URL.replace('ws', 'http').replace(':2567', ':2567');
       const response = await fetch(`${httpUrl}/lookup/${roomCode}`);
-      
+
       if (!response.ok) {
         throw new Error("Room not found or invalid code");
       }
@@ -119,10 +119,10 @@ export const useStore = create<StoreState>((set, get) => ({
       console.log(`✅ Room found! ID: ${data.roomId}. Joining...`);
 
       const room = await store.client.joinById(data.roomId, { name: nickname }) as Colyseus.Room<UNOState>;
-      
+
       store._setupRoom(room);
       set({ isConnecting: false });
-      
+
     } catch (e: any) {
       console.error("❌ Join error:", e);
       let msg = e.message || "Unable to join room";
@@ -131,17 +131,23 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  leaveRoom: () => {
+leaveRoom: () => {
     const { room } = get();
     if (room) room.leave();
+    
+    // On nettoie le token pour ne pas se reconnecter automatiquement après un départ volontaire
+    localStorage.removeItem("uno_reconnection_token");
+    
     set({ room: null, gameState: null, playerId: null, error: null, isConnecting: false });
-    // ✅ Nettoyer l'URL
-    window.history.pushState({}, document.title, window.location.pathname);
-  },
+},
 
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
+    // localStorage.setItem('uno_room_id', room.id);
+    // localStorage.setItem('uno_session_id', room.sessionId);
+    localStorage.setItem("uno_reconnection_token", room.reconnectionToken);
+
     set({ room, playerId: room.sessionId, error: null });
-    
+
     room.onStateChange.once((state) => {
       set({ gameState: state as any });
       // ✅ Mettre l'URL à jour avec le code de room
@@ -156,13 +162,38 @@ export const useStore = create<StoreState>((set, get) => ({
 
     room.onMessage("notification", (msg) => get().addNotification(msg));
     room.onMessage("error", (msg) => get().addNotification("⚠️ " + msg));
-    
+
     room.onLeave((code) => {
-        set({ room: null, gameState: null, playerId: null, isConnecting: false });
-        // ✅ Nettoyer l'URL
-        window.history.pushState({}, document.title, window.location.pathname);
-        if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
+      set({ room: null, gameState: null, playerId: null, isConnecting: false });
+      // ✅ Nettoyer l'URL
+      window.history.pushState({}, document.title, window.location.pathname);
+      if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
     });
+  },
+
+  tryReconnect: async () => {
+    const token = localStorage.getItem("uno_reconnection_token");
+
+    // On vérifie qu'on a un token et qu'on n'est pas déjà connecté
+    if (token && !get().room) {
+      try {
+        set({ isConnecting: true });
+        console.log("♻️ Reconnexion avec le token...");
+
+        // C'EST ICI LA CORRECTION :
+        // 1. On passe le token
+        // 2. On passe la CLASSE UNOState (pas une string)
+        const room = await get().client.reconnect(token, UNOState) as Colyseus.Room<UNOState>;
+
+        console.log("✅ Reconnexion réussie !");
+        get()._setupRoom(room);
+        set({ isConnecting: false });
+      } catch (e) {
+        console.warn("❌ Token invalide ou expiré");
+        localStorage.removeItem("uno_reconnection_token");
+        set({ isConnecting: false });
+      }
+    }
   },
 
   toggleReady: () => get().room?.send("toggleReady"),
