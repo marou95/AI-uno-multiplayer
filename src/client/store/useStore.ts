@@ -9,10 +9,19 @@ const getBackendUrl = () => {
   const env = meta.env || {};
   if (env.VITE_SERVER_URL) return env.VITE_SERVER_URL;
   if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-     return RAILWAY_BACKEND;
+    return RAILWAY_BACKEND;
+  }
+  // Local development ou Network local
+  // (localhost, 127.0.0.1, ou 192.168.x.x, etc.)
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+    const protocol = window.location.protocol.replace('http', 'ws');
+    return `${protocol}//${hostname}:2567`; // ✅ Force le port 2567
   }
   const protocol = window.location.protocol.replace('http', 'ws');
   return `${protocol}//${window.location.host}`;
+
+
 };
 
 const SERVER_URL = getBackendUrl();
@@ -27,7 +36,7 @@ interface StoreState {
   error: string | null;
   notifications: string[];
   isConnecting: boolean;
-  
+
   setNickname: (name: string) => void;
   createRoom: () => Promise<void>;
   joinRoom: (code: string) => Promise<void>;
@@ -71,11 +80,11 @@ export const useStore = create<StoreState>((set, get) => ({
 
       console.log(`🎮 Creating room on ${SERVER_URL}...`);
       const room = await store.client.create("uno", { name: nickname }) as Colyseus.Room<UNOState>;
-      
+
       console.log("✅ Room Created (ID):", room.roomId);
       store._setupRoom(room);
       set({ isConnecting: false });
-      
+
     } catch (e: any) {
       console.error("❌ Create error:", e);
       set({ error: e.message || "Failed to create room", isConnecting: false });
@@ -88,10 +97,10 @@ export const useStore = create<StoreState>((set, get) => ({
 
     try {
       set({ error: null, isConnecting: true });
-      
+
       const nickname = store.nickname.trim();
       const roomCode = code.trim().toUpperCase();
-      
+
       if (!nickname) throw new Error("Nickname required");
       if (roomCode.length !== 5) throw new Error("Code must be 5 letters");
 
@@ -99,7 +108,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
       const httpUrl = SERVER_URL.replace('ws', 'http');
       const response = await fetch(`${httpUrl}/lookup/${roomCode}`);
-      
+
       if (!response.ok) {
         throw new Error("Room not found or invalid code");
       }
@@ -108,10 +117,10 @@ export const useStore = create<StoreState>((set, get) => ({
       console.log(`✅ Room found! ID: ${data.roomId}. Joining...`);
 
       const room = await store.client.joinById(data.roomId, { name: nickname }) as Colyseus.Room<UNOState>;
-      
+
       store._setupRoom(room);
       set({ isConnecting: false });
-      
+
     } catch (e: any) {
       console.error("❌ Join error:", e);
       let msg = e.message || "Unable to join room";
@@ -128,7 +137,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
     set({ room, playerId: room.sessionId, error: null });
-    
+
     room.onStateChange.once((state) => {
       set({ gameState: state as any });
     });
@@ -139,10 +148,10 @@ export const useStore = create<StoreState>((set, get) => ({
 
     room.onMessage("notification", (msg) => get().addNotification(msg));
     room.onMessage("error", (msg) => get().addNotification("⚠️ " + msg));
-    
+
     room.onLeave((code) => {
-        set({ room: null, gameState: null, playerId: null, isConnecting: false });
-        if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
+      set({ room: null, gameState: null, playerId: null, isConnecting: false });
+      if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
     });
   },
 
