@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card as CardSchema } from '../../server/schema/UNOState';
+import { Card as CardSchema } from '../schema/UNOState';
 import clsx from 'clsx';
 import { Ban, RefreshCcw, Layers } from 'lucide-react';
 import { playSound } from '../utils/sounds';

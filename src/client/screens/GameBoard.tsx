@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CardColor } from '../../shared/types';
 import { playSound } from '../utils/sounds';
 import confetti from 'canvas-confetti';
-import { Player } from '../../server/schema/UNOState';
+import { Player } from '../schema/UNOState';
 import clsx from 'clsx';
 import { Siren, RotateCcw, LogOut, PaintBucket } from 'lucide-react';
 
@@ -21,7 +21,6 @@ export const GameBoard = () => {
   const { gameState, playerId, playCard, drawCard, sayUno, catchUno, leaveRoom, requestRestart } = useStore();
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
 
-  // ✅ Les hooks DOIVENT être appelés AVANT tout return conditionnel
   useEffect(() => {
     if (gameState && gameState.winner) {
       playSound('win');
@@ -69,7 +68,6 @@ export const GameBoard = () => {
     }
   };
 
-  // ✅ Condition rendue APRÈS tous les hooks
   if (gameState.winner) {
     const isWinner = gameState.winner === me?.name;
     const connectedPlayers = Array.from(gameState.players.values()).filter(p => p.isConnected) as Player[];

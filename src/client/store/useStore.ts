@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
-import { UNOState } from '../../server/schema/UNOState';
+import { UNOState } from '../schema/UNOState';
 
 // const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 const RAILWAY_BACKEND = 'wss://uno-server-0sb3.onrender.com';
@@ -175,7 +175,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     room.onStateChange.once((state) => {
       set({ gameState: state as any });
-      // ✅ Mettre l'URL à jour avec le code de room
+      // Mettre l'URL à jour avec le code de room
       if ((state as any).roomCode) {
         window.history.pushState({}, document.title, `?room=${(state as any).roomCode}`);
       }
@@ -190,7 +190,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     room.onLeave((code) => {
       set({ room: null, gameState: null, playerId: null, isConnecting: false });
-      // ✅ Nettoyer l'URL
+      // Nettoyer l'URL
       window.history.pushState({}, document.title, window.location.pathname);
       if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
     });

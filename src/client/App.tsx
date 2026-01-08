@@ -9,22 +9,37 @@ import { playSound } from './utils/sounds';
 import { Loader2, Gamepad2, ArrowRight } from 'lucide-react';
 
 const App = () => {
-  const { gameState, nickname, setNickname, createRoom, joinRoom, error, notifications, isConnecting } = useStore();
+  const { gameState, nickname, setNickname, createRoom, joinRoom, error, notifications, isConnecting, tryReconnect } = useStore();
   const [code, setCode] = useState('');
   const [view, setView] = useState<'home' | 'lobby' | 'game'>('home');
+  const [isInitializing, setIsInitializing] = useState(true);
 
+  // Au démarrage, essayer de se reconnecter
   useEffect(() => {
-    // ✅ NOUVEAU: Vérifier l'URL au démarrage
-    const params = new URLSearchParams(window.location.search);
-    const roomCodeFromUrl = params.get('room');
-    
-    if (roomCodeFromUrl && !gameState && nickname) {
-      setCode(roomCodeFromUrl);
-      // Auto-join après un court délai
-      setTimeout(() => {
-        joinRoom(roomCodeFromUrl);
-      }, 500);
-    }
+    const initializeApp = async () => {
+      // Vérifier si y'a un token de reconnexion
+      const token = localStorage.getItem("uno_reconnection_token");
+      
+      if (token) {
+        console.log("🔄 Tentative de reconnexion automatique...");
+        await tryReconnect();
+      } else {
+        // Sinon, vérifier l'URL pour un room code
+        const params = new URLSearchParams(window.location.search);
+        const roomCodeFromUrl = params.get('room');
+        
+        if (roomCodeFromUrl && nickname) {
+          setCode(roomCodeFromUrl);
+          setTimeout(() => {
+            joinRoom(roomCodeFromUrl);
+          }, 500);
+        }
+      }
+      
+      setIsInitializing(false);
+    };
+
+    initializeApp();
   }, []);
 
   useEffect(() => {
@@ -37,6 +52,22 @@ const App = () => {
       setView('game');
     }
   }, [gameState, gameState?.status]);
+
+  // Écran de chargement initial
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+        <motion.div
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="text-6xl mb-4"
+        >
+          🎮
+        </motion.div>
+        <p className="text-white/60 font-medium">Loading...</p>
+      </div>
+    );
+  }
 
   // --- ÉCRAN D'ACCUEIL (HOME) ---
   if (view === 'home') {

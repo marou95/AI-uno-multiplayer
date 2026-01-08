@@ -1,20 +1,56 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🃏 UNO Multiplayer
 
-# Run and deploy your AI Studio app
+A real-time, fully responsive multiplayer UNO card game built for the web. Play with friends in private rooms with smooth animations and authentic game rules.
 
-This contains everything you need to run your app locally.
+## ✨ Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1DMTPPd6SMNgcG2tHTiVtoemIJhL7fG_G
+*   **Real-time Multiplayer:** Powered by Colyseus WebSockets for seamless synchronization.
+*   **Custom Game Rooms:** Create a room, get a 5-letter code, and invite up to 6 players.
+*   **Authentic Rules:**
+    *   Standard action cards: Skip, Reverse, Draw 2, Wild, and Wild 4.
+    *   **+2 Stacking:** Stack Draw 2 cards to pass the penalty to the next player.
+    *   **Catch UNO:** If a player has one card and hasn't shouted "UNO!", opponents have 3 seconds to "Catch" them and force a 2-card penalty.
+*   **Responsive Design:** Optimized for both Desktop and Mobile (touch-friendly).
+*   **Immersive UX:** Vibrant animations with Framer Motion, SFX, and win celebrations with confetti.
 
-## Run Locally
+## 🚀 Getting Started
 
-**Prerequisites:**  Node.js
+### Prerequisites
+*   Node.js (v18 or higher)
+*   npm
+*   Backend server : https://github.com/marou95/uno-server.git
 
+### Installation
+1. Clone the repositories.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Running Locally
+To start the frontend environment:
+```bash
+npm run dev
+```
+
+To start the backend environment:
+```bash
+npm run start:server
+```
+*   **Frontend:** `http://localhost:5173`
+*   **Backend:** `http://localhost:2567`
+
+## 🛠 Tech Stack
+
+*   **Frontend:** React 19, TypeScript, Tailwind CSS, Lucide Icons.
+*   **State Management:** Zustand (Client) & Colyseus Schema (Server).
+*   **Animations:** Framer Motion & Canvas-Confetti.
+*   **Backend:** Colyseus Game Engine, Express, Node.js.
+*   **Deployment:** Railway/render.com (Server) and Vercel (Client).
+
+## 🎮 How to Play
+1. Enter your nickname.
+2. **Create a Room** or enter a **Room Code** from a friend.
+3. Mark yourself as **Ready** in the lobby.
+4. Once everyone is ready, the host starts the game.
+5. Match cards by color or symbol. Don't forget to shout **UNO** when you have one card left!

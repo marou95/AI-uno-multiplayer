@@ -32,7 +32,5 @@ export class UNOState extends Schema {
   @type("string") status: string = "lobby"; 
   @type("string") winner: string = "";
   @type("string") pendingUnoPenaltyPlayerId: string = "";
-
-  // INDISPENSABLE POUR LE LOBBY :
-  @type("string") roomCode: string = ""; 
+  @type("string") roomCode: string = "";
 }

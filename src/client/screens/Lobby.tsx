@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Copy, User, CheckCircle2, Play, LogOut, Loader2 } from 'lucide-react';
-import { Player } from '../../server/schema/UNOState';
+import { Player } from '../schema/UNOState';
 import { playSound } from '../utils/sounds';
 
 export const Lobby = () => {
