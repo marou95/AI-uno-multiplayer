@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../../server/schema/UNOState';
 
-const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
+// const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
+const RAILWAY_BACKEND = 'wss://uno-server-0sb3.onrender.com';
 
 const getBackendUrl = () => {
   const meta = import.meta as any;
@@ -50,6 +51,7 @@ interface StoreState {
   sayUno: () => void;
   catchUno: () => void;
   requestRestart: () => void;
+  tryReconnect: () => Promise<void>;
   addNotification: (msg: string) => void;
   _setupRoom: (room: Colyseus.Room<UNOState>) => void;
 }
@@ -131,7 +133,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-leaveRoom: () => {
+  leaveRoom: () => {
     const { room } = get();
     if (room) room.leave();
     
@@ -139,36 +141,6 @@ leaveRoom: () => {
     localStorage.removeItem("uno_reconnection_token");
     
     set({ room: null, gameState: null, playerId: null, error: null, isConnecting: false });
-},
-
-  _setupRoom: (room: Colyseus.Room<UNOState>) => {
-    // localStorage.setItem('uno_room_id', room.id);
-    // localStorage.setItem('uno_session_id', room.sessionId);
-    localStorage.setItem("uno_reconnection_token", room.reconnectionToken);
-
-    set({ room, playerId: room.sessionId, error: null });
-
-    room.onStateChange.once((state) => {
-      set({ gameState: state as any });
-      // ✅ Mettre l'URL à jour avec le code de room
-      if ((state as any).roomCode) {
-        window.history.pushState({}, document.title, `?room=${(state as any).roomCode}`);
-      }
-    });
-
-    room.onStateChange((state) => {
-      set({ gameState: state as any });
-    });
-
-    room.onMessage("notification", (msg) => get().addNotification(msg));
-    room.onMessage("error", (msg) => get().addNotification("⚠️ " + msg));
-
-    room.onLeave((code) => {
-      set({ room: null, gameState: null, playerId: null, isConnecting: false });
-      // ✅ Nettoyer l'URL
-      window.history.pushState({}, document.title, window.location.pathname);
-      if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
-    });
   },
 
   tryReconnect: async () => {
@@ -194,6 +166,34 @@ leaveRoom: () => {
         set({ isConnecting: false });
       }
     }
+  },
+
+  _setupRoom: (room: Colyseus.Room<UNOState>) => {
+    localStorage.setItem("uno_reconnection_token", room.reconnectionToken);
+
+    set({ room, playerId: room.sessionId, error: null });
+
+    room.onStateChange.once((state) => {
+      set({ gameState: state as any });
+      // ✅ Mettre l'URL à jour avec le code de room
+      if ((state as any).roomCode) {
+        window.history.pushState({}, document.title, `?room=${(state as any).roomCode}`);
+      }
+    });
+
+    room.onStateChange((state) => {
+      set({ gameState: state as any });
+    });
+
+    room.onMessage("notification", (msg) => get().addNotification(msg));
+    room.onMessage("error", (msg) => get().addNotification("⚠️ " + msg));
+
+    room.onLeave((code) => {
+      set({ room: null, gameState: null, playerId: null, isConnecting: false });
+      // ✅ Nettoyer l'URL
+      window.history.pushState({}, document.title, window.location.pathname);
+      if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
+    });
   },
 
   toggleReady: () => get().room?.send("toggleReady"),
