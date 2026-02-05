@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../schema/UNOState';
 
-const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
+const RAILWAY_BACKEND = 'wss://uno-server-0sb3.onrender.com';
 
 const getBackendUrl = () => {
   const meta = import.meta as any;
