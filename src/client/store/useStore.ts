@@ -2,8 +2,7 @@ import { create } from 'zustand';
 import * as Colyseus from 'colyseus.js';
 import { UNOState } from '../schema/UNOState';
 
-// const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
-const RAILWAY_BACKEND = 'wss://uno-server-0sb3.onrender.com';
+const RAILWAY_BACKEND = 'wss://ai-uno-multiplayer-production.up.railway.app';
 
 const getBackendUrl = () => {
   const meta = import.meta as any;
@@ -44,6 +43,7 @@ interface StoreState {
   createRoom: () => Promise<void>;
   joinRoom: (code: string) => Promise<void>;
   leaveRoom: () => void;
+  tryReconnect: () => Promise<void>;
   toggleReady: () => void;
   startGame: () => void;
   playCard: (cardId: string, color?: string) => void;
@@ -51,7 +51,6 @@ interface StoreState {
   sayUno: () => void;
   catchUno: () => void;
   requestRestart: () => void;
-  tryReconnect: () => Promise<void>;
   addNotification: (msg: string) => void;
   _setupRoom: (room: Colyseus.Room<UNOState>) => void;
 }
@@ -86,6 +85,8 @@ export const useStore = create<StoreState>((set, get) => ({
       const room = await store.client.create("uno", { name: nickname }) as Colyseus.Room<UNOState>;
 
       console.log("✅ Room Created (ID):", room.roomId);
+      // SUPPRESSION: localStorage.setItem (Pas de persistance)
+
       store._setupRoom(room);
       set({ isConnecting: false });
 
@@ -122,6 +123,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
       const room = await store.client.joinById(data.roomId, { name: nickname }) as Colyseus.Room<UNOState>;
 
+      // SUPPRESSION: localStorage.setItem (Pas de persistance)
+
       store._setupRoom(room);
       set({ isConnecting: false });
 
@@ -133,52 +136,24 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
+  tryReconnect: async () => {
+    // FONCTIONVIDÉE : Plus de reconnexion automatique via localStorage
+    // On garde la fonction vide pour ne pas casser les appels existants dans App.tsx
+  },
+
   leaveRoom: () => {
     const { room } = get();
     if (room) room.leave();
-    
-    // On nettoie le token pour ne pas se reconnecter automatiquement après un départ volontaire
-    localStorage.removeItem("uno_reconnection_token");
-    
     set({ room: null, gameState: null, playerId: null, error: null, isConnecting: false });
-  },
-
-  tryReconnect: async () => {
-    const token = localStorage.getItem("uno_reconnection_token");
-
-    // On vérifie qu'on a un token et qu'on n'est pas déjà connecté
-    if (token && !get().room) {
-      try {
-        set({ isConnecting: true });
-        console.log("♻️ Reconnexion avec le token...");
-
-        // C'EST ICI LA CORRECTION :
-        // 1. On passe le token
-        // 2. On passe la CLASSE UNOState (pas une string)
-        const room = await get().client.reconnect(token, UNOState) as Colyseus.Room<UNOState>;
-
-        console.log("✅ Reconnexion réussie !");
-        get()._setupRoom(room);
-        set({ isConnecting: false });
-      } catch (e) {
-        console.warn("❌ Token invalide ou expiré");
-        localStorage.removeItem("uno_reconnection_token");
-        set({ isConnecting: false });
-      }
-    }
+    // SUPPRESSION: window.history (Pas de manipulation d'URL)
   },
 
   _setupRoom: (room: Colyseus.Room<UNOState>) => {
-    localStorage.setItem("uno_reconnection_token", room.reconnectionToken);
-
     set({ room, playerId: room.sessionId, error: null });
 
     room.onStateChange.once((state) => {
       set({ gameState: state as any });
-      // Mettre l'URL à jour avec le code de room
-      if ((state as any).roomCode) {
-        window.history.pushState({}, document.title, `?room=${(state as any).roomCode}`);
-      }
+      // SUPPRESSION: window.history (Pas de mise à jour de l'URL avec ?room=...)
     });
 
     room.onStateChange((state) => {
@@ -190,8 +165,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
     room.onLeave((code) => {
       set({ room: null, gameState: null, playerId: null, isConnecting: false });
-      // Nettoyer l'URL
-      window.history.pushState({}, document.title, window.location.pathname);
       if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
     });
   },

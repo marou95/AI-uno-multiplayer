@@ -22,22 +22,19 @@ export const GameBoard = () => {
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-useEffect(() => {
-      if (gameState && gameState.winner && playerId) {
-        // On récupère le joueur actuel pour comparer son nom avec le gagnant
-        const me = gameState.players.get(playerId);
-        const isWinner = me?.name === gameState.winner;
-  
-        if (isWinner) {
-          // VICTOIRE : Son de victoire + Confettis
-          playSound('win');
-          confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-        } else {
-          // DÉFAITE : Son de défaite uniquement (pas de confettis)
-          playSound('lose');
-        }
+  useEffect(() => {
+    if (gameState && gameState.winner && playerId) {
+      const me = gameState.players.get(playerId);
+      const isWinner = me?.name === gameState.winner;
+
+      if (isWinner) {
+        playSound('win');
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+      } else {
+        playSound('lose');
       }
-    }, [gameState?.winner, playerId]);
+    }
+  }, [gameState?.winner, playerId]);
 
   if (!gameState || !playerId) return null;
 
@@ -140,6 +137,15 @@ useEffect(() => {
           <div className="w-96 h-96 border-[20px] border-white rounded-full border-dashed animate-spin-slow" style={{ animationDuration: '20s' }} />
         </motion.div>
       </div>
+
+      {/* BOUTON QUITTER (Position ajustée à right-20 pour être à gauche du bouton son) */}
+      <button 
+        onClick={() => { leaveRoom(); playSound('click'); }} 
+        className="absolute top-4 right-20 z-50 bg-slate-900/50 hover:bg-red-500/80 text-white p-3 rounded-full border border-white/10 backdrop-blur-sm transition-all shadow-lg hover:scale-110 active:scale-95 group"
+        title="Quit Game"
+      >
+        <LogOut size={20} className="group-hover:stroke-white" />
+      </button>
 
       {/* BOUTON CATCH */}
       <AnimatePresence>
