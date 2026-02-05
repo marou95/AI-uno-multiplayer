@@ -5,13 +5,13 @@ class SoundManager {
   
   // Récupère la préférence utilisateur
   public isMuted: boolean = localStorage.getItem('uno_muted') === 'true';
-  public volume: number = 0.5;
+  public volume: number = 0.4;
 
   // Banque de sons (SFX uniquement)
   private sources = {
-    hover: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+    hover: 'https://assets.mixkit.co/active_storage/sfx/2579/2579-preview.mp3',
     click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
-    play: 'https://assets.mixkit.co/active_storage/sfx/209/209-preview.mp3',
+    play: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3',
     draw: 'https://assets.mixkit.co/active_storage/sfx/2574/2574-preview.mp3',
     uno: 'https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3',
     win: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3',
