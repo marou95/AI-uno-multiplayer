@@ -22,12 +22,22 @@ export const GameBoard = () => {
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  useEffect(() => {
-    if (gameState && gameState.winner) {
-      playSound('win');
-      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-    }
-  }, [gameState?.winner]);
+useEffect(() => {
+      if (gameState && gameState.winner && playerId) {
+        // On récupère le joueur actuel pour comparer son nom avec le gagnant
+        const me = gameState.players.get(playerId);
+        const isWinner = me?.name === gameState.winner;
+  
+        if (isWinner) {
+          // VICTOIRE : Son de victoire + Confettis
+          playSound('win');
+          confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        } else {
+          // DÉFAITE : Son de défaite uniquement (pas de confettis)
+          playSound('lose');
+        }
+      }
+    }, [gameState?.winner, playerId]);
 
   if (!gameState || !playerId) return null;
 
