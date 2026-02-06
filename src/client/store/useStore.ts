@@ -39,6 +39,8 @@ interface StoreState {
   notifications: string[];
   isConnecting: boolean;
 
+  addBot: () => void;
+  removeBot: (id: string) => void;
   setNickname: (name: string) => void;
   createRoom: () => Promise<void>;
   joinRoom: (code: string) => Promise<void>;
@@ -64,6 +66,8 @@ export const useStore = create<StoreState>((set, get) => ({
   error: null,
   notifications: [],
   isConnecting: false,
+  addBot: () => get().room?.send("addBot"),
+  removeBot: (id) => get().room?.send("removeBot", id),
 
   setNickname: (name) => {
     localStorage.setItem('uno_nickname', name);
