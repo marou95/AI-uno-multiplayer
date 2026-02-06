@@ -26,8 +26,25 @@ const getBackendUrl = () => {
   return `${protocol}//${window.location.host}:2567`;
 };
 
+// Génère un ID unique pour le navigateur s'il n'existe pas
+const getDeviceId = () => {
+  let id = localStorage.getItem('uno_device_id');
+  if (!id) {
+    id = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    localStorage.setItem('uno_device_id', id);
+  }
+  return id;
+};
+
 const SERVER_URL = getBackendUrl();
 console.log("🔌 Connecting to Server:", SERVER_URL);
+
+// Interface pour stocker les infos de session
+interface PreviousSession {
+  roomId: string;
+  sessionId: string;
+  roomCode: string;
+}
 
 interface StoreState {
   client: Colyseus.Client;
@@ -38,6 +55,7 @@ interface StoreState {
   error: string | null;
   notifications: string[];
   isConnecting: boolean;
+  previousSession: PreviousSession | null; // NOUVEAU
 
   addBot: () => void;
   removeBot: (id: string) => void;
@@ -46,6 +64,8 @@ interface StoreState {
   joinRoom: (code: string) => Promise<void>;
   leaveRoom: () => void;
   tryReconnect: () => Promise<void>;
+  checkPreviousSession: () => void; // NOUVEAU
+  reconnectToSession: () => Promise<void>; // NOUVEAU
   toggleReady: () => void;
   startGame: () => void;
   playCard: (cardId: string, color?: string) => void;
@@ -54,7 +74,7 @@ interface StoreState {
   catchUno: () => void;
   requestRestart: () => void;
   addNotification: (msg: string) => void;
-  _setupRoom: (room: Colyseus.Room<UNOState>) => void;
+  _setupRoom: (room: Colyseus.Room<UNOState>, knownCode?: string) => void; // Signature mise à jour
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -66,6 +86,8 @@ export const useStore = create<StoreState>((set, get) => ({
   error: null,
   notifications: [],
   isConnecting: false,
+  previousSession: null, // Initialisation
+
   addBot: () => get().room?.send("addBot"),
   removeBot: (id) => get().room?.send("removeBot", id),
 
@@ -74,6 +96,19 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ nickname: name });
     const room = get().room;
     if (room) room.send("setInfo", { name });
+  },
+
+  // Vérifie au chargement si une session existe en cache
+  checkPreviousSession: () => {
+    const saved = localStorage.getItem('uno_session');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        set({ previousSession: parsed });
+      } catch (e) {
+        localStorage.removeItem('uno_session');
+      }
+    }
   },
 
   createRoom: async () => {
@@ -86,10 +121,9 @@ export const useStore = create<StoreState>((set, get) => ({
       if (!nickname) throw new Error("Nickname required");
 
       console.log(`🎮 Creating room on ${SERVER_URL}...`);
-      const room = await store.client.create("uno", { name: nickname }) as Colyseus.Room<UNOState>;
+      const room = await store.client.create("uno", { name: nickname, deviceId: getDeviceId() }) as Colyseus.Room<UNOState>;
 
       console.log("✅ Room Created (ID):", room.roomId);
-      // SUPPRESSION: localStorage.setItem (Pas de persistance)
 
       store._setupRoom(room);
       set({ isConnecting: false });
@@ -125,11 +159,9 @@ export const useStore = create<StoreState>((set, get) => ({
       const data = await response.json();
       console.log(`✅ Room found! ID: ${data.roomId}. Joining...`);
 
-      const room = await store.client.joinById(data.roomId, { name: nickname }) as Colyseus.Room<UNOState>;
+      const room = await store.client.joinById(data.roomId, { name: nickname, deviceId: getDeviceId() }) as Colyseus.Room<UNOState>;
 
-      // SUPPRESSION: localStorage.setItem (Pas de persistance)
-
-      store._setupRoom(room);
+      store._setupRoom(room, roomCode);
       set({ isConnecting: false });
 
     } catch (e: any) {
@@ -141,24 +173,74 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   tryReconnect: async () => {
-    // FONCTIONVIDÉE : Plus de reconnexion automatique via localStorage
-    // On garde la fonction vide pour ne pas casser les appels existants dans App.tsx
+    // Ancienne fonction conservée vide pour compatibilité
+  },
+
+  // Logique de reconnexion manuelle (Corrigée pour utiliser joinById)
+  reconnectToSession: async () => {
+    const store = get();
+    const session = store.previousSession;
+    if (!session) return;
+
+    try {
+      set({ isConnecting: true, error: null });
+      console.log("♻️ Attempting smart rejoin to", session.roomId);
+
+      // AU LIEU DE RECONNECT : On utilise joinById pour déclencher onJoin sur le serveur
+      // Cela active la logique de récupération par nom (Name Matching)
+      const room = await store.client.joinById(
+        session.roomId,
+        // Envoi du nom et deviceId (ajout du deviceId pour aider à l'identification du joueur côté serveur) pour la logique de reconnexion intelligente
+        { name: store.nickname, deviceId: getDeviceId() }
+      ) as Colyseus.Room<UNOState>;
+
+      console.log("✅ Rejoined successfully!");
+      store._setupRoom(room, session.roomCode);
+      set({ isConnecting: false });
+
+    } catch (e: any) {
+      console.error("❌ Rejoin failed:", e);
+      // Si la room n'existe plus, on nettoie
+      if (e.message.includes("not found") || e.code === 4212) {
+        localStorage.removeItem('uno_session');
+        set({ previousSession: null });
+      }
+      set({
+        isConnecting: false,
+        error: "Unable to rejoin room (Game might be over)."
+      });
+    }
   },
 
   leaveRoom: () => {
     const { room } = get();
     if (room) room.leave();
-    set({ room: null, gameState: null, playerId: null, error: null, isConnecting: false });
-    // SUPPRESSION: window.history (Pas de manipulation d'URL)
+
+    // Suppression explicite de la session lors d'un départ volontaire
+    localStorage.removeItem('uno_session');
+
+    set({ room: null, gameState: null, playerId: null, error: null, isConnecting: false, previousSession: null });
   },
 
-  _setupRoom: (room: Colyseus.Room<UNOState>) => {
-    set({ room, playerId: room.sessionId, error: null });
+  _setupRoom: (room: Colyseus.Room<UNOState>, knownCode?: string) => {
 
+    // Sauvegarde des infos de session dès qu'on a le code
     room.onStateChange.once((state) => {
       set({ gameState: state as any });
-      // SUPPRESSION: window.history (Pas de mise à jour de l'URL avec ?room=...)
+
+      const code = knownCode || state.roomCode;
+      if (code) {
+        const sessionData = {
+          roomId: room.roomId,
+          sessionId: room.sessionId,
+          roomCode: code
+        };
+        localStorage.setItem('uno_session', JSON.stringify(sessionData));
+        set({ previousSession: sessionData });
+      }
     });
+
+    set({ room, playerId: room.sessionId, error: null });
 
     room.onStateChange((state) => {
       set({ gameState: state as any });
@@ -169,7 +251,12 @@ export const useStore = create<StoreState>((set, get) => ({
 
     room.onLeave((code) => {
       set({ room: null, gameState: null, playerId: null, isConnecting: false });
-      if (code !== 1000) get().addNotification(`⚠️ Disconnected (${code})`);
+
+      // Si déconnexion involontaire, on vérifie si on peut proposer la reconnexion
+      if (code !== 1000) {
+        get().addNotification(`⚠️ Disconnected (${code})`);
+        get().checkPreviousSession();
+      }
     });
   },
 

@@ -6,9 +6,11 @@ import { GameStatus } from '../shared/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SoundToggle } from './components/SoundToggle';
 import { playSound } from './utils/sounds';
-import { Loader2, Gamepad2, ArrowRight } from 'lucide-react';
+import { Loader2, Gamepad2, ArrowRight, Wifi } from 'lucide-react'; // ✅ Ajout de Wifi
+
 const App = () => {
-  const { gameState, nickname, setNickname, createRoom, joinRoom, error, notifications, isConnecting, tryReconnect } = useStore();
+  // ✅ Récupération de previousSession et reconnectToSession
+  const { gameState, nickname, setNickname, createRoom, joinRoom, error, notifications, isConnecting, tryReconnect, previousSession, checkPreviousSession, reconnectToSession } = useStore();
   const [code, setCode] = useState('');
   const [view, setView] = useState<'home' | 'lobby' | 'game'>('home');
   const [isInitializing, setIsInitializing] = useState(true);
@@ -16,23 +18,18 @@ const App = () => {
   // Au démarrage, essayer de se reconnecter
   useEffect(() => {
     const initializeApp = async () => {
-      // Vérifier si y'a un token de reconnexion
-      const token = localStorage.getItem("uno_reconnection_token");
+      // ✅ Vérifier si y'a une session précédente stockée (pour le bouton manuel)
+      checkPreviousSession();
 
-      if (token) {
-        console.log("🔄 Tentative de reconnexion automatique...");
-        await tryReconnect();
-      } else {
-        // Sinon, vérifier l'URL pour un room code
-        const params = new URLSearchParams(window.location.search);
-        const roomCodeFromUrl = params.get('room');
+      // Vérifier l'URL pour un room code (Deep linking)
+      const params = new URLSearchParams(window.location.search);
+      const roomCodeFromUrl = params.get('room');
 
-        if (roomCodeFromUrl && nickname) {
+      if (roomCodeFromUrl && nickname) {
           setCode(roomCodeFromUrl);
           setTimeout(() => {
             joinRoom(roomCodeFromUrl);
           }, 500);
-        }
       }
 
       setIsInitializing(false);
@@ -73,6 +70,27 @@ const App = () => {
     return (
       <div className="min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
         <SoundToggle />
+
+        {/* ✅ BOUTON RECONNEXION (Ajouté ici) */}
+        {!gameState && previousSession && (
+            <div className="absolute top-4 left-4 z-50 animate-in fade-in slide-in-from-left-4 duration-500">
+               <button 
+                 onClick={() => { playSound('click'); reconnectToSession(); }}
+                 disabled={isConnecting}
+                 className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-6 rounded-full shadow-lg shadow-yellow-500/20 flex items-center gap-3 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+               >
+                  {isConnecting ? (
+                     <Loader2 size={20} className="animate-spin" />
+                  ) : (
+                     <Wifi size={20} />
+                  )}
+                  <div className="flex flex-col items-start leading-tight">
+                     <span className="text-xs font-semibold opacity-80 uppercase">Reconnect to</span>
+                     <span className="text-sm font-black tracking-wide">ROOM {previousSession.roomCode}</span>
+                  </div>
+               </button>
+            </div>
+        )}
 
         {/* Décorations d'arrière-plan */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
